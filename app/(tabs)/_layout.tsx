@@ -1,34 +1,63 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs } from "expo-router";
+import React from "react";
 
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { TabBarIcon } from "@/components/TabBarIcon";
+import { Colors } from "@/constants/Colors";
+import { Text } from "react-native";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors.accent,
         headerShown: false,
-      }}>
+        tabBarShowLabel: false,
+        tabBarStyle: {
+          backgroundColor: "#121212",
+          height: 64,
+          borderTopWidth: 0,
+        },
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          title: 'Home',
+          title: "Home",
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'home' : 'home-outline'} color={color} />
+            <>
+              <TabBarIcon
+                name={focused ? "home" : "home-outline"}
+                color={color}
+              />
+              <Text
+                className={`mt-1 ${
+                  focused ? "text-accent" : "text-gray-500"
+                } text-[12px]`}
+              >
+                Home
+              </Text>
+            </>
           ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Explore',
+          title: "Explore",
           tabBarIcon: ({ color, focused }) => (
-            <TabBarIcon name={focused ? 'code-slash' : 'code-slash-outline'} color={color} />
+            <>
+              <TabBarIcon
+                name={focused ? "person" : "person-outline"}
+                color={color}
+              />
+              <Text
+                className={`mt-1 ${
+                  focused ? "text-accent" : "text-gray-500"
+                } text-[12px]`}
+              >
+                Explore
+              </Text>
+            </>
           ),
         }}
       />
