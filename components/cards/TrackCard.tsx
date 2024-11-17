@@ -1,4 +1,5 @@
 import { ALBUM_PLACEHOLDER } from "@/constants";
+import { usePlayerContext } from "@/contexts/PlayerContext";
 import React from "react";
 import { Image, Pressable, Text } from "react-native";
 
@@ -8,9 +9,18 @@ interface TrackCardProps {
 }
 
 const TrackCard: React.FC<TrackCardProps> = ({ item, styles }) => {
+  const { setCurrentTrack, play } = usePlayerContext();
+
+  const playTrack = async () => {
+    setCurrentTrack(item);
+
+    await play(item);
+  };
+
   return (
     <Pressable
       className={`bg-secondary p-3 mr-3 w-[200px] rounded-md ${styles}`}
+      onPress={playTrack}
     >
       <Image
         source={{

@@ -1,5 +1,6 @@
 import ParallaxScrollView from "@/components/ParallexScrollview";
 import Track from "@/components/Track";
+import TrackSkeleton from "@/components/skeleton/TrackSkeleton";
 import { usePlayerContext } from "@/contexts/PlayerContext";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -11,6 +12,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 const LikedTracks = () => {
   const { setCurrentTrack, play, isPlaying, isLoading } = usePlayerContext();
   const [likedSongs, setLikedSongs] = useState<any[]>([]);
+  const [isLoadingTrack, setIsLoadingTrack] = useState(true);
 
   const fetchLikedSongs = async () => {
     try {
@@ -27,6 +29,8 @@ const LikedTracks = () => {
       setLikedSongs(data?.items);
     } catch (error) {
       console.log("fetchLikedSongs Error", error);
+    } finally {
+      setIsLoadingTrack(false);
     }
   };
 
@@ -78,12 +82,23 @@ const LikedTracks = () => {
           )}
         </Pressable>
       </View>
+
       <View className="">
-        {likedSongs
-          ?.filter((obj) => obj?.track?.name !== "")
-          ?.map((song, index) => (
-            <Track key={index} item={song} />
-          ))}
+        {isLoadingTrack ? (
+          <>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <TrackSkeleton key={i} />
+            ))}
+          </>
+        ) : (
+          <>
+            {likedSongs
+              ?.filter((obj) => obj?.track?.name !== "")
+              ?.map((song, index) => (
+                <Track key={index} item={song} />
+              ))}
+          </>
+        )}
       </View>
     </ParallaxScrollView>
   );

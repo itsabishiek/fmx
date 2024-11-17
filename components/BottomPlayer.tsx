@@ -6,6 +6,7 @@ import AntDesign from "@expo/vector-icons/AntDesign";
 import Entypo from "@expo/vector-icons/Entypo";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { usePlayerContext } from "@/contexts/PlayerContext";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 interface BottomPlayerType {}
 
@@ -122,8 +123,35 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 </Text>
               </View>
 
-              <View>
-                <Text className="text-gray-100">Player actions</Text>
+              <View className="flex flex-row items-center justify-between">
+                <Pressable onPress={() => setModalVisible(false)}>
+                  <Ionicons name="shuffle" size={30} color="white" />
+                </Pressable>
+                <Pressable onPress={() => setModalVisible(false)}>
+                  <Ionicons name="play-skip-back" size={30} color="white" />
+                </Pressable>
+                <Pressable
+                  className="w-[65px] h-[65px] flex items-center justify-center bg-white/50 rounded-full"
+                  onPress={playTrack}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="white" size={32} />
+                  ) : (
+                    <>
+                      {isPlaying ? (
+                        <FontAwesome5 name="pause" size={30} color="white" />
+                      ) : (
+                        <FontAwesome5 name="play" size={30} color="white" />
+                      )}
+                    </>
+                  )}
+                </Pressable>
+                <Pressable onPress={() => setModalVisible(false)}>
+                  <Ionicons name="play-skip-forward" size={30} color="white" />
+                </Pressable>
+                <Pressable onPress={() => setModalVisible(false)}>
+                  <Ionicons name="repeat" size={30} color="white" />
+                </Pressable>
               </View>
             </View>
           </View>

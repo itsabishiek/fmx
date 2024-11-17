@@ -2,7 +2,9 @@ import Container from "@/components/Container";
 import LoaderScreen from "@/components/LoaderScreen";
 import ArtistCard from "@/components/cards/ArtistCart";
 import TrackCard from "@/components/cards/TrackCard";
+import TrackCardSkeleton from "@/components/skeleton/TrackCardSkeleton";
 import { ALBUM_PLACEHOLDER, AVATAR_PLACEHODER } from "@/constants";
+import { usePlayerContext } from "@/contexts/PlayerContext";
 import { greetingMessage } from "@/utils";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -16,6 +18,8 @@ export default function HomeScreen() {
   const [recentlyPlayed, setRecentlyPlayed] = useState<any[]>([]);
   const [topArtists, setTopArtists] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingRecently, setIsLoadingRecently] = useState(true);
+  const [isLoadingArtists, setIsLoadingArtists] = useState(true);
 
   const fetchUserProfile = async () => {
     try {
@@ -31,9 +35,10 @@ export default function HomeScreen() {
       const data = await res.json();
 
       setUserData(data);
-      setIsLoading(false);
     } catch (error) {
       console.log("fetchUserProfile Error", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -55,6 +60,8 @@ export default function HomeScreen() {
       setRecentlyPlayed(data?.items);
     } catch (error) {
       console.log("fetchRecentlyPlayedSongs Error", error);
+    } finally {
+      setIsLoadingRecently(false);
     }
   };
 
@@ -73,6 +80,8 @@ export default function HomeScreen() {
       setTopArtists(data?.items);
     } catch (error) {
       console.log("fetchTopArtists Error", error);
+    } finally {
+      setIsLoadingArtists(false);
     }
   };
 
@@ -88,7 +97,7 @@ export default function HomeScreen() {
 
   return (
     <Container>
-      <View className="p-3 pt-2 mb-5">
+      <View className="p-3 pt-2 mb-[60px]">
         <View className="flex-row justify-between items-center">
           <View>
             <Text className="text-accent font-semibold text-base">
@@ -131,81 +140,156 @@ export default function HomeScreen() {
           <Pressable
             className={`bg-secondary flex flex-row flex-1 items-center mr-2 rounded-md mb-3`}
           >
-            <Image
-              source={{
-                uri:
-                  recentlyPlayed[0]?.track?.album?.images[0]?.url ||
-                  ALBUM_PLACEHOLDER,
-              }}
-              className="w-[70px] h-[70px] rounded-md mr-2"
-            />
-            <Text className="text-white flex-1 font-semibold" numberOfLines={2}>
-              {recentlyPlayed[0]?.track?.name}
-            </Text>
+            {isLoadingRecently ? (
+              <View className="w-[70px] h-[70px] bg-secondary-100/50 rounded-md mr-2" />
+            ) : (
+              <Image
+                source={{
+                  uri:
+                    recentlyPlayed[0]?.track?.album?.images[0]?.url ||
+                    ALBUM_PLACEHOLDER,
+                }}
+                className="w-[70px] h-[70px] rounded-md mr-2"
+              />
+            )}
+            {isLoadingRecently ? (
+              <Text className="text-white flex-1 font-semibold bg-secondary-100/50 h-[30px] w-full rounded"></Text>
+            ) : (
+              <Text
+                className="text-white flex-1 font-semibold"
+                numberOfLines={2}
+              >
+                {recentlyPlayed[0]?.track?.name}
+              </Text>
+            )}
           </Pressable>
         </View>
 
         <View>
-          <FlatList
-            data={recentlyPlayed?.slice(1, 3)}
-            renderItem={renderRecentlyPlayed}
-            scrollEnabled={false}
-            numColumns={2}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-          />
+          {isLoading ? (
+            <FlatList
+              data={[1, 1]}
+              renderItem={({ item, index }) => (
+                <RenderRecentlyPlayed
+                  key={index}
+                  item={item}
+                  isLoadingRecently={isLoadingRecently}
+                />
+              )}
+              scrollEnabled={false}
+              numColumns={2}
+              columnWrapperStyle={{ justifyContent: "space-between" }}
+            />
+          ) : (
+            <FlatList
+              data={recentlyPlayed?.slice(1, 3)}
+              renderItem={({ item, index }) => (
+                <RenderRecentlyPlayed
+                  key={index}
+                  index={index}
+                  item={item}
+                  isLoadingRecently={isLoadingRecently}
+                />
+              )}
+              scrollEnabled={false}
+              numColumns={2}
+              columnWrapperStyle={{ justifyContent: "space-between" }}
+            />
+          )}
         </View>
 
         <View className="mt-2">
           <Text className="text-white text-[22px] font-semibold mb-3">
             Top Artists
           </Text>
-          <FlatList
-            horizontal={true}
-            data={topArtists}
-            renderItem={({ item, index }) => (
-              <ArtistCard key={index} item={item} />
-            )}
-          />
+
+          {isLoadingArtists ? (
+            <FlatList
+              horizontal={true}
+              data={[1, 1, 1, 1]}
+              renderItem={({ item, index }) => (
+                <TrackCardSkeleton key={index} />
+              )}
+            />
+          ) : (
+            <FlatList
+              horizontal={true}
+              data={topArtists}
+              renderItem={({ item, index }) => (
+                <ArtistCard key={index} item={item} />
+              )}
+            />
+          )}
         </View>
 
         <View className="mt-4">
           <Text className="text-white text-[22px] font-semibold mb-3">
             Recently Played
           </Text>
-          <FlatList
-            horizontal={true}
-            data={recentlyPlayed}
-            renderItem={({ item, index }) => (
-              <TrackCard key={index} item={item} />
-            )}
-          />
+
+          {isLoadingRecently ? (
+            <FlatList
+              horizontal={true}
+              data={[1, 1, 1, 1]}
+              renderItem={({ item, index }) => (
+                <TrackCardSkeleton key={index} isTrackCard />
+              )}
+            />
+          ) : (
+            <FlatList
+              horizontal={true}
+              data={recentlyPlayed}
+              renderItem={({ item, index }) => (
+                <TrackCard key={index} item={item} />
+              )}
+            />
+          )}
         </View>
       </View>
     </Container>
   );
 }
 
-const renderRecentlyPlayed = ({
+const RenderRecentlyPlayed = ({
   item,
   index,
+  isLoadingRecently,
 }: {
   item: any;
-  index: number;
+  index?: number;
+  isLoadingRecently: boolean;
 }) => {
+  const { setCurrentTrack, play } = usePlayerContext();
+
+  const playTrack = async () => {
+    setCurrentTrack(item);
+
+    await play(item);
+  };
+
   return (
     <Pressable
       key={index}
       className={`bg-secondary flex flex-row flex-1 items-center mr-2 rounded-md mb-3`}
+      onPress={playTrack}
     >
-      <Image
-        source={{
-          uri: item?.track?.album?.images[0]?.url || ALBUM_PLACEHOLDER,
-        }}
-        className="w-[70px] h-[70px] rounded-md mr-2"
-      />
-      <Text className="text-white flex-1 font-semibold" numberOfLines={2}>
-        {item?.track?.name}
-      </Text>
+      {isLoadingRecently ? (
+        <View className="w-[70px] h-[70px] bg-secondary-100/50 rounded-md mr-2" />
+      ) : (
+        <Image
+          source={{
+            uri: item?.track?.album?.images[0]?.url || ALBUM_PLACEHOLDER,
+          }}
+          className="w-[70px] h-[70px] rounded-md mr-2"
+        />
+      )}
+      {isLoadingRecently ? (
+        <Text className="text-white flex-1 font-semibold bg-secondary-100/50 h-[30px] w-full rounded"></Text>
+      ) : (
+        <Text className="text-white flex-1 font-semibold" numberOfLines={2}>
+          {item?.track?.name}
+        </Text>
+      )}
     </Pressable>
   );
 };
