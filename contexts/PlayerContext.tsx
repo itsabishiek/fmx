@@ -12,6 +12,8 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
 
   const play = async (song: any) => {
     try {
+      setIsLoading(true);
+
       const songName = song?.track?.name;
       const artistName = song?.track?.artists?.[0]?.name;
 
@@ -20,41 +22,16 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // Check if the current song is already loaded
-      if (sound) {
-        if (isPlaying) {
-          await sound.pauseAsync(); // Pause if already playing
-          setIsPlaying(false);
-        } else {
-          await sound.playAsync(); // Play if paused
-          setIsPlaying(true);
-        }
-        return; // Skip fetching the audio URL
+      const res = await fetch(
+        `https://saavn.dev/api/search/songs?query=${songName} ${artistName}`
+      );
+
+      if (!res.ok) {
+        throw new Error(`Failed to fetch song data: ${res.statusText}`);
       }
 
-      // Load new song: Unload the previous sound if needed
-      if (sound) {
-        await sound.unloadAsync();
-        setSound(null);
-      }
-
-      setIsLoading(true);
-
-      // Fetch song's audio URL
-      const fetchAudioUrl = async () => {
-        const res = await fetch(
-          `https://saavn.dev/api/search/songs?query=${songName} ${artistName}`
-        );
-
-        if (!res.ok) {
-          throw new Error(`Failed to fetch song data: ${res.statusText}`);
-        }
-
-        const songData = await res.json();
-        return songData?.data?.results?.[0]?.downloadUrl?.[3]?.url;
-      };
-
-      const audioURL = await fetchAudioUrl();
+      const songData = await res.json();
+      const audioURL = songData?.data?.results?.[0]?.downloadUrl?.[3]?.url;
       if (!audioURL) {
         console.error("No audio URL found.");
         return;
@@ -66,7 +43,13 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         { shouldPlay: true, isLooping: false }
       );
 
+      // Clean up the previous sound if necessary
+      if (sound) {
+        await sound.unloadAsync();
+      }
+
       setSound(newSound);
+      setIsLoading(false);
       setIsPlaying(true);
 
       newSound.setOnPlaybackStatusUpdate((status: any) => {
@@ -76,14 +59,36 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
       });
     } catch (error) {
       console.error("play Error", error);
-    } finally {
-      setIsLoading(false);
+    }
+  };
+
+  const playpause = async () => {
+    // Check if the current song is already loaded
+    if (sound) {
+      if (isPlaying) {
+        await sound.pauseAsync(); // Pause if already playing
+        setIsPlaying(false);
+      } else {
+        await sound.playAsync(); // Play if paused
+        setIsPlaying(true);
+      }
     }
   };
 
   return (
     <PlayerContext.Provider
-      value={{ currentTrack, setCurrentTrack, play, isPlaying, isLoading }}
+      value={{
+        currentTrack,
+        setCurrentTrack,
+        sound,
+        setSound,
+        play,
+        isPlaying,
+        setIsPlaying,
+        isLoading,
+        setIsLoading,
+        playpause,
+      }}
     >
       {children}
     </PlayerContext.Provider>

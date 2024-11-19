@@ -47,7 +47,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <>
               <TabBarIcon
-                name={focused ? "person" : "person-outline"}
+                name={focused ? "search" : "search-outline"}
                 color={color}
               />
               <Text
@@ -56,6 +56,27 @@ export default function TabLayout() {
                 } text-[12px]`}
               >
                 Explore
+              </Text>
+            </>
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, focused }) => (
+            <>
+              <TabBarIcon
+                name={focused ? "person" : "person-outline"}
+                color={color}
+              />
+              <Text
+                className={`mt-1 ${
+                  focused ? "text-accent" : "text-gray-500"
+                } text-[12px]`}
+              >
+                Profile
               </Text>
             </>
           ),

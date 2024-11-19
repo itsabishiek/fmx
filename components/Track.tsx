@@ -9,9 +9,13 @@ interface TrackProps {
 }
 
 const Track: React.FC<TrackProps> = ({ item }) => {
-  const { setCurrentTrack, play } = usePlayerContext();
+  const { setCurrentTrack, setSound, play, setIsPlaying, setIsLoading } =
+    usePlayerContext();
 
   const playTrack = async () => {
+    setSound(null);
+    setIsPlaying(false);
+
     setCurrentTrack(item);
 
     await play(item);

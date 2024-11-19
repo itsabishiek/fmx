@@ -25,6 +25,12 @@ const LikedTracks = () => {
         },
       });
 
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("fetchLikedSongs Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
       const data = await res.json();
       setLikedSongs(data?.items);
     } catch (error) {
@@ -92,11 +98,19 @@ const LikedTracks = () => {
           </>
         ) : (
           <>
-            {likedSongs
-              ?.filter((obj) => obj?.track?.name !== "")
-              ?.map((song, index) => (
-                <Track key={index} item={song} />
-              ))}
+            {likedSongs?.length > 0 ? (
+              <>
+                {likedSongs
+                  ?.filter((obj) => obj?.track?.name !== "")
+                  ?.map((song, index) => (
+                    <Track key={index} item={song} />
+                  ))}
+              </>
+            ) : (
+              <View className="h-screen flex items-center justify-center">
+                <Text className="text-white text-[17px]">No Songs found!</Text>
+              </View>
+            )}
           </>
         )}
       </View>

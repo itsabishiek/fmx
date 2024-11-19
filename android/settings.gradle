@@ -44,7 +44,7 @@ if (getRNMinorVersion() >= 75) {
   }
 }
 
-rootProject.name = 'fmx'
+rootProject.name = 'FMX'
 
 dependencyResolutionManagement {
   versionCatalogs {

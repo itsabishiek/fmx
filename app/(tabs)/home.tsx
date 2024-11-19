@@ -32,6 +32,12 @@ export default function HomeScreen() {
         },
       });
 
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("fetchUserProfile Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
       const data = await res.json();
 
       setUserData(data);
@@ -56,6 +62,12 @@ export default function HomeScreen() {
         }
       );
 
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("fetchRecentlyPlayedSongs Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
       const data = await res.json();
       setRecentlyPlayed(data?.items);
     } catch (error) {
@@ -75,6 +87,12 @@ export default function HomeScreen() {
           Authorization: `Bearer ${accessToken}`,
         },
       });
+
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("fetchTopArtists Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
 
       const data = await res.json();
       setTopArtists(data?.items);

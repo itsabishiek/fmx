@@ -12,7 +12,8 @@ interface BottomPlayerType {}
 
 const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
   const [modalVisible, setModalVisible] = useState<any>(false);
-  const { currentTrack, play, isPlaying, isLoading } = usePlayerContext();
+  const { currentTrack, play, isPlaying, isLoading, playpause } =
+    usePlayerContext();
 
   const artists = currentTrack?.track?.artists
     ?.map((artist: any) => artist?.name)
@@ -55,7 +56,7 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
             <View>
               <Pressable
                 className="w-[50px] h-[50px] flex items-center justify-center"
-                onPress={playTrack}
+                onPress={playpause}
               >
                 {isLoading ? (
                   <ActivityIndicator color="white" size={28} />
