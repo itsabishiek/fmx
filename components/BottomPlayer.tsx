@@ -7,12 +7,14 @@ import Entypo from "@expo/vector-icons/Entypo";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { usePlayerContext } from "@/contexts/PlayerContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { State } from "react-native-track-player";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 interface BottomPlayerType {}
 
 const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
   const [modalVisible, setModalVisible] = useState<any>(false);
-  const { currentTrack, play, isPlaying, isLoading, playpause } =
+  const { currentTrack, play, isLoading, playpause, playBackState } =
     usePlayerContext();
 
   const artists = currentTrack?.track?.artists
@@ -21,6 +23,27 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
 
   const playTrack = async () => {
     await play(currentTrack);
+  };
+
+  const trackName = () => {
+    let name;
+    if (currentTrack?.track?.name) {
+      if (currentTrack?.track?.name?.length > 26) {
+        name = `${currentTrack?.track?.name?.slice(0, 26)}...`;
+        return name;
+      } else {
+        if (currentTrack?.name?.length > 26) {
+          currentTrack?.track?.name;
+          return name;
+        } else {
+          name = currentTrack?.name;
+          return name;
+        }
+      }
+    } else {
+      name = `${currentTrack?.name?.slice(0, 26)}...`;
+      return name;
+    }
   };
 
   return (
@@ -44,12 +67,11 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 className="text-white font-semibold text-[17px]"
                 numberOfLines={1}
               >
-                {currentTrack?.track?.name?.length > 28
-                  ? `${currentTrack?.track?.name?.slice(0, 28)}...`
-                  : currentTrack?.track?.name}
+                {trackName()}
               </Text>
               <Text className="text-gray-300 font-semibold text-[15px]">
-                {currentTrack?.track?.artists?.[0]?.name}
+                {currentTrack?.track?.artists?.[0]?.name ||
+                  currentTrack?.artists?.[0]?.name}
               </Text>
             </View>
 
@@ -62,10 +84,19 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                   <ActivityIndicator color="white" size={28} />
                 ) : (
                   <>
-                    {isPlaying ? (
-                      <FontAwesome5 name="pause" size={24} color="white" />
+                    {playBackState.state === State.Loading ||
+                    playBackState.state === State.Buffering ? (
+                      <MaterialIcons name="pending" size={24} color="white" />
                     ) : (
-                      <FontAwesome5 name="play" size={24} color="white" />
+                      <FontAwesome5
+                        name={
+                          playBackState.state === State.Playing
+                            ? "pause"
+                            : "play"
+                        }
+                        size={24}
+                        color="white"
+                      />
                     )}
                   </>
                 )}
@@ -133,16 +164,25 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 </Pressable>
                 <Pressable
                   className="w-[65px] h-[65px] flex items-center justify-center bg-white/50 rounded-full"
-                  onPress={playTrack}
+                  onPress={playpause}
                 >
                   {isLoading ? (
                     <ActivityIndicator color="white" size={32} />
                   ) : (
                     <>
-                      {isPlaying ? (
-                        <FontAwesome5 name="pause" size={30} color="white" />
+                      {playBackState.state === State.Loading ||
+                      playBackState.state === State.Buffering ? (
+                        <MaterialIcons name="pending" size={30} color="white" />
                       ) : (
-                        <FontAwesome5 name="play" size={30} color="white" />
+                        <FontAwesome5
+                          name={
+                            playBackState.state === State.Playing
+                              ? "pause"
+                              : "play"
+                          }
+                          size={30}
+                          color="white"
+                        />
                       )}
                     </>
                   )}

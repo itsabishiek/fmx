@@ -1,21 +1,44 @@
-import { createContext, useContext, useState } from "react";
-import { Audio } from "expo-av";
+import { createContext, useContext, useEffect, useState } from "react";
+import TrackPlayer, {
+  State,
+  Capability,
+  usePlaybackState,
+} from "react-native-track-player";
 
 export const PlayerContext = createContext({});
 export const usePlayerContext = () => useContext<any>(PlayerContext);
 
+TrackPlayer.registerPlaybackService(() => require("../utils/services"));
+
 const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentTrack, setCurrentTrack] = useState<any>();
-  const [sound, setSound] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const playBackState = usePlaybackState();
+
+  const setupTrackPlayer = async () => {
+    try {
+      await TrackPlayer.setupPlayer();
+      await TrackPlayer.updateOptions({
+        capabilities: [
+          Capability.Play,
+          Capability.Pause,
+          Capability.SkipToNext,
+          Capability.SkipToPrevious,
+        ],
+      });
+    } catch (error) {
+      console.error("TrackPlayer setup error:", error);
+    }
+  };
 
   const play = async (song: any) => {
     try {
       setIsLoading(true);
 
-      const songName = song?.track?.name;
-      const artistName = song?.track?.artists?.[0]?.name;
+      const songName = song?.track?.name || song?.name;
+      const artistName =
+        song?.track?.artists?.[0]?.name || song?.artists?.[0]?.name;
 
       if (!songName || !artistName) {
         console.error("Invalid song data.");
@@ -37,57 +60,50 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         return;
       }
 
-      // Load and play the new sound
-      const { sound: newSound } = await Audio.Sound.createAsync(
-        { uri: audioURL },
-        { shouldPlay: true, isLooping: false }
-      );
-
-      // Clean up the previous sound if necessary
-      if (sound) {
-        await sound.unloadAsync();
-      }
-
-      setSound(newSound);
-      setIsLoading(false);
-      setIsPlaying(true);
-
-      newSound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.didJustFinish) {
-          setIsPlaying(false);
-        }
+      // Add the track to the queue
+      await TrackPlayer.reset();
+      await TrackPlayer.add({
+        id: song?.track?.id,
+        url: audioURL,
+        title: songName,
+        artist: artistName,
+        artwork: song?.track?.album?.images?.[0]?.url || undefined, // Optional: album artwork
       });
+
+      await TrackPlayer.play();
     } catch (error) {
       console.error("play Error", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const playpause = async () => {
-    // Check if the current song is already loaded
-    if (sound) {
-      if (isPlaying) {
-        await sound.pauseAsync(); // Pause if already playing
-        setIsPlaying(false);
-      } else {
-        await sound.playAsync(); // Play if paused
-        setIsPlaying(true);
-      }
+    if (playBackState.state === State.Playing) {
+      await TrackPlayer.pause();
+    } else if (playBackState.state === State.Paused) {
+      await TrackPlayer.play();
     }
   };
+
+  useEffect(() => {
+    setupTrackPlayer();
+
+    return () => {
+      TrackPlayer.reset();
+    };
+  }, []);
 
   return (
     <PlayerContext.Provider
       value={{
         currentTrack,
         setCurrentTrack,
-        sound,
-        setSound,
-        play,
-        isPlaying,
-        setIsPlaying,
         isLoading,
         setIsLoading,
+        play,
         playpause,
+        playBackState,
       }}
     >
       {children}

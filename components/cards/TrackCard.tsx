@@ -1,5 +1,5 @@
 import { ALBUM_PLACEHOLDER } from "@/constants";
-import { usePlayerContext } from "@/contexts/PlayerContext";
+import { router } from "expo-router";
 import React from "react";
 import { Image, Pressable, Text } from "react-native";
 
@@ -9,18 +9,23 @@ interface TrackCardProps {
 }
 
 const TrackCard: React.FC<TrackCardProps> = ({ item, styles }) => {
-  const { setCurrentTrack, play } = usePlayerContext();
-
-  const playTrack = async () => {
-    setCurrentTrack(item);
-
-    await play(item);
-  };
+  const artists = item?.track?.artists
+    ?.map((artist: any) => artist?.name)
+    ?.join(", ");
 
   return (
     <Pressable
       className={`bg-secondary p-3 mr-3 w-[200px] rounded-md ${styles}`}
-      onPress={playTrack}
+      onPress={() =>
+        router.push({
+          pathname: `/album/${item?.track?.album?.id}`,
+          params: {
+            albumImg: item?.track?.album?.images[0].url,
+            trackName: item?.track?.name,
+            artists,
+          },
+        })
+      }
     >
       <Image
         source={{

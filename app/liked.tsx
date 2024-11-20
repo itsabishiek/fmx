@@ -8,9 +8,11 @@ import { Audio } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { State } from "react-native-track-player";
 
 const LikedTracks = () => {
-  const { setCurrentTrack, play, isPlaying, isLoading } = usePlayerContext();
+  const { setCurrentTrack, play, isLoading, playBackState } =
+    usePlayerContext();
   const [likedSongs, setLikedSongs] = useState<any[]>([]);
   const [isLoadingTrack, setIsLoadingTrack] = useState(true);
 
@@ -78,13 +80,11 @@ const LikedTracks = () => {
           {isLoading ? (
             <ActivityIndicator color="white" size={28} />
           ) : (
-            <>
-              {isPlaying ? (
-                <FontAwesome5 name="pause" size={24} color="white" />
-              ) : (
-                <FontAwesome5 name="play" size={24} color="white" />
-              )}
-            </>
+            <FontAwesome5
+              name={playBackState.state === State.Playing ? "pause" : "play"}
+              size={24}
+              color="white"
+            />
           )}
         </Pressable>
       </View>

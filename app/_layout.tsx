@@ -28,10 +28,18 @@ export default function RootLayout() {
   return (
     <PlayerContextProvider>
       <View className="flex-1 relative">
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: {
+              backgroundColor: "#19191c",
+            },
+          }}
+        >
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="index" />
           <Stack.Screen name="liked" />
+          <Stack.Screen name="album/[albumId]/index" />
         </Stack>
       </View>
 
