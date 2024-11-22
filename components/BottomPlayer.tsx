@@ -32,17 +32,17 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
         name = `${currentTrack?.track?.name?.slice(0, 26)}...`;
         return name;
       } else {
-        if (currentTrack?.name?.length > 26) {
-          currentTrack?.track?.name;
-          return name;
-        } else {
-          name = currentTrack?.name;
-          return name;
-        }
+        name = currentTrack?.track?.name;
+        return name;
       }
     } else {
-      name = `${currentTrack?.name?.slice(0, 26)}...`;
-      return name;
+      if (currentTrack?.name?.length > 30) {
+        name = `${currentTrack?.name?.slice(0, 30)}...`;
+        return name;
+      } else {
+        name = currentTrack?.name;
+        return name;
+      }
     }
   };
 
@@ -54,14 +54,16 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
       >
         <View className="bg-accent/95 mb-5 p-3 w-full h-[70px] flex flex-row items-center justify-between rounded-lg">
           <View className="flex flex-row items-center justify-between w-full">
-            <Image
-              source={{
-                uri:
-                  currentTrack?.track?.album?.images[0]?.url ||
-                  ALBUM_PLACEHOLDER,
-              }}
-              className="w-[50px] h-[50px] mr-2"
-            />
+            {!currentTrack?.name && (
+              <Image
+                source={{
+                  uri:
+                    currentTrack?.track?.album?.images[0]?.url ||
+                    ALBUM_PLACEHOLDER,
+                }}
+                className="w-[50px] h-[50px] mr-2"
+              />
+            )}
             <View className="">
               <Text
                 className="text-white font-semibold text-[17px]"

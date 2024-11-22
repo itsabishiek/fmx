@@ -1,78 +1,76 @@
-import ParallaxScrollView from "@/components/ParallexScrollview";
-import Track from "@/components/Track";
-import TrackSkeleton from "@/components/skeleton/TrackSkeleton";
-import { usePlayerContext } from "@/contexts/PlayerContext";
-import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Audio } from "expo-av";
-import { LinearGradient } from "expo-linear-gradient";
+import { View, Text, Image, Pressable, ActivityIndicator } from "react-native";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import ParallaxScrollView from "@/components/ParallexScrollview";
+import { FontAwesome5 } from "@expo/vector-icons";
+import { usePlayerContext } from "@/contexts/PlayerContext";
+import TrackSkeleton from "@/components/skeleton/TrackSkeleton";
+import Track from "@/components/Track";
 import { State } from "react-native-track-player";
 
-const LikedTracks = () => {
+const Playlist = () => {
+  const { playlistId, playlistImg, playlistName, ownerName, description } =
+    useLocalSearchParams();
   const { setCurrentTrack, play, isLoading, playBackState } =
     usePlayerContext();
-  const [likedSongs, setLikedSongs] = useState<any[]>([]);
-  const [isLoadingTrack, setIsLoadingTrack] = useState(true);
+  const [playlistTracks, setPlaylistTracks] = useState<any[]>([]);
+  const [isPlaylistLoading, setIsPlaylistLoading] = useState(true);
 
-  const fetchLikedSongs = async () => {
+  const fetchPlaylist = async () => {
     try {
       const accessToken = await AsyncStorage.getItem("accessToken");
 
-      const res = await fetch("https://api.spotify.com/v1/me/tracks?limit=50", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
+      const res = await fetch(
+        `https://api.spotify.com/v1/playlists/${playlistId}/tracks`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
 
       if (!res.ok) {
         const errorText = await res.text(); // Attempt to get the error message
-        console.log("fetchLikedSongs Error:", errorText);
+        console.log("fetchPlaylist Error:", errorText);
         throw new Error(`HTTP Error: ${res.status}`);
       }
 
       const data = await res.json();
-      setLikedSongs(data?.items);
+
+      setPlaylistTracks(data?.items);
     } catch (error) {
-      console.log("fetchLikedSongs Error", error);
+      console.log("fetchPlaylist Error", error);
     } finally {
-      setIsLoadingTrack(false);
+      setIsPlaylistLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchLikedSongs();
+    fetchPlaylist();
   }, []);
 
   const playTrack = async () => {
-    if (likedSongs.length > 0) {
-      setCurrentTrack(likedSongs[0]);
+    if (playlistTracks.length > 0) {
+      setCurrentTrack(playlistTracks[0]);
     }
 
-    await play(likedSongs[0]);
+    await play(playlistTracks[0]);
   };
 
   return (
     <ParallaxScrollView
       headerBackgroundColor="#19191c"
-      headerHeight={250}
       headerImage={
-        <LinearGradient
-          colors={["#fd356d", "#a43d5c", "#19191c"]}
+        <Image
+          source={{ uri: playlistImg as string }}
           className="absolute bottom-0 left-0 h-full w-full"
-        >
-          <View className="p-4 mt-[100px]">
-            <Text className="text-white font-semibold text-2xl">
-              Liked Songs
-            </Text>
-            <Text className="text-gray-300 text-[17px]">Your loved tracks</Text>
-          </View>
-        </LinearGradient>
+          resizeMode="cover"
+        />
       }
     >
-      <View className="absolute top-[-40px] right-5">
+      <View className="absolute top-[-35px] right-5">
         <Pressable
           className="bg-accent w-[60px] h-[60px] rounded-full flex items-center justify-center"
           onPress={playTrack}
@@ -89,8 +87,15 @@ const LikedTracks = () => {
         </Pressable>
       </View>
 
-      <View className="">
-        {isLoadingTrack ? (
+      <View>
+        <Text className="text-white font-semibold text-[20px]">
+          {playlistName}
+        </Text>
+        <Text className="text-gray-400 text-base mt-0.5">{ownerName}</Text>
+      </View>
+
+      <View className="mt-4">
+        {isPlaylistLoading ? (
           <>
             {Array.from({ length: 12 }).map((_, i) => (
               <TrackSkeleton key={i} />
@@ -98,9 +103,9 @@ const LikedTracks = () => {
           </>
         ) : (
           <>
-            {likedSongs?.length > 0 ? (
+            {playlistTracks?.length > 0 ? (
               <>
-                {likedSongs
+                {playlistTracks
                   ?.filter((obj) => obj?.track?.name !== "")
                   ?.map((song, index) => (
                     <Track key={index} item={song} />
@@ -118,4 +123,4 @@ const LikedTracks = () => {
   );
 };
 
-export default LikedTracks;
+export default Playlist;

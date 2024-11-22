@@ -1,12 +1,12 @@
-import Container from "@/components/Container";
 import ParallaxScrollView from "@/components/ParallexScrollview";
-import Track from "@/components/Track";
+import TrackSkeleton from "@/components/skeleton/TrackSkeleton";
 import { usePlayerContext } from "@/contexts/PlayerContext";
 import { Entypo, FontAwesome5 } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Image, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { State } from "react-native-track-player";
 
 const Album = () => {
   const { albumId, albumImg, trackName, artists } = useLocalSearchParams();
@@ -69,7 +69,15 @@ const Album = () => {
     >
       <View className="absolute top-[-35px] right-5">
         <Pressable className="bg-accent w-[60px] h-[60px] rounded-full flex items-center justify-center">
-          <FontAwesome5 name={"play"} size={24} color="white" />
+          {isLoading ? (
+            <ActivityIndicator color="white" size={28} />
+          ) : (
+            <FontAwesome5
+              name={playBackState.state === State.Playing ? "pause" : "play"}
+              size={24}
+              color="white"
+            />
+          )}
         </Pressable>
       </View>
 
@@ -80,41 +88,59 @@ const Album = () => {
         <Text className="text-gray-400 text-base mt-0.5">{artists}</Text>
 
         <View className="mt-6">
-          {albumTracks?.map((song: any, index) => {
-            const playTrack = async () => {
-              setCurrentTrack(song);
+          {isTrackLoading ? (
+            <>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <TrackSkeleton key={i} />
+              ))}
+            </>
+          ) : (
+            <>
+              {albumTracks?.map((song: any, index) => {
+                const playTrack = async () => {
+                  setCurrentTrack(song);
 
-              await play(song);
-            };
+                  await play(song);
+                };
 
-            return (
-              <Pressable
-                key={index}
-                className="mb-4 flex-row items-center justify-between"
-                onPress={playTrack}
-              >
-                <View className="flex-row items-center flex-1 w-full">
-                  <View className="">
-                    <Text
-                      className="text-white font-semibold text-[17px]"
-                      numberOfLines={1}
-                    >
-                      {song?.name?.length > 30
-                        ? `${song?.name?.slice(0, 30)}...`
-                        : song?.name}
-                    </Text>
-                    <Text className="text-gray-400 font-semibold text-[15px]">
-                      {song?.artists?.[0]?.name}
-                    </Text>
-                  </View>
-                </View>
+                return (
+                  <Pressable
+                    key={index}
+                    className="mb-4 flex-row items-center justify-between"
+                    onPress={playTrack}
+                  >
+                    <View className="flex-row items-center flex-1 w-full">
+                      <Text className="text-white font-semibold text-[18px] mr-4">
+                        {index + 1}.
+                      </Text>
 
-                <Pressable>
-                  <Entypo name="dots-three-vertical" size={24} color="gray" />
-                </Pressable>
-              </Pressable>
-            );
-          })}
+                      <View className="">
+                        <Text
+                          className="text-white font-semibold text-[17px]"
+                          numberOfLines={1}
+                        >
+                          {song?.name?.length > 30
+                            ? `${song?.name?.slice(0, 30)}...`
+                            : song?.name}
+                        </Text>
+                        <Text className="text-gray-400 font-semibold text-[15px]">
+                          {song?.artists?.[0]?.name}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Pressable>
+                      <Entypo
+                        name="dots-three-vertical"
+                        size={24}
+                        color="gray"
+                      />
+                    </Pressable>
+                  </Pressable>
+                );
+              })}
+            </>
+          )}
         </View>
       </View>
     </ParallaxScrollView>

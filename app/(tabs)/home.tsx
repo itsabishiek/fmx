@@ -150,9 +150,7 @@ export default function HomeScreen() {
                 <AntDesign name="heart" size={26} color="white" />
               </View>
             </LinearGradient>
-            <Text className="text-white flex-1 font-semibold" numberOfLines={2}>
-              Liked Songs
-            </Text>
+            <Text className="text-white flex-1 font-semibold">Liked Songs</Text>
           </Pressable>
 
           <Pressable
