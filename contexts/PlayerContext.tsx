@@ -1,8 +1,11 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import TrackPlayer, {
   State,
   Capability,
   usePlaybackState,
+  useProgress,
+  useTrackPlayerEvents,
+  Event,
 } from "react-native-track-player";
 
 export const PlayerContext = createContext({});
@@ -13,8 +16,11 @@ TrackPlayer.registerPlaybackService(() => require("../utils/services"));
 const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentTrack, setCurrentTrack] = useState<any>();
   const [isLoading, setIsLoading] = useState(false);
+  const [queue, setQueue] = useState<any>();
 
   const playBackState = usePlaybackState();
+  const progress = useProgress();
+  const value = useRef(0);
 
   const setupTrackPlayer = async () => {
     try {
@@ -86,6 +92,54 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const playPreviousTrack = async () => {
+    try {
+      value.current -= 1;
+      if (value.current < queue?.length) {
+        const prevTrack = queue[value.current];
+        setCurrentTrack(prevTrack);
+
+        await play(prevTrack);
+      } else {
+        console.log("End of the playlist");
+      }
+    } catch (error) {
+      console.log("playNextTrack Error", error);
+    }
+  };
+
+  const playNextTrack = async () => {
+    try {
+      value.current += 1;
+      if (value.current < queue?.length) {
+        const nextTrack = queue[value.current];
+        setCurrentTrack(nextTrack);
+
+        await play(nextTrack);
+      } else {
+        console.log("End of the playlist");
+      }
+    } catch (error) {
+      console.log("playNextTrack Error", error);
+    }
+  };
+
+  useTrackPlayerEvents(
+    [Event.PlaybackQueueEnded, Event.PlaybackTrackChanged],
+    async (event) => {
+      if (event.type === Event.PlaybackQueueEnded) {
+        console.log("Playback queue ended");
+        playNextTrack();
+      } else if (
+        event.type === Event.PlaybackTrackChanged &&
+        event.nextTrack == null
+      ) {
+        console.log("Track finished");
+        playNextTrack();
+      }
+    }
+  );
+
   useEffect(() => {
     setupTrackPlayer();
 
@@ -104,6 +158,11 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         play,
         playpause,
         playBackState,
+        progress,
+        queue,
+        setQueue,
+        playPreviousTrack,
+        playNextTrack,
       }}
     >
       {children}

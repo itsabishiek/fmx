@@ -12,7 +12,7 @@ import { State } from "react-native-track-player";
 const Playlist = () => {
   const { playlistId, playlistImg, playlistName, ownerName, description } =
     useLocalSearchParams();
-  const { setCurrentTrack, play, isLoading, playBackState } =
+  const { setCurrentTrack, play, isLoading, playBackState, setQueue } =
     usePlayerContext();
   const [playlistTracks, setPlaylistTracks] = useState<any[]>([]);
   const [isPlaylistLoading, setIsPlaylistLoading] = useState(true);
@@ -40,6 +40,7 @@ const Playlist = () => {
       const data = await res.json();
 
       setPlaylistTracks(data?.items);
+      setQueue(data?.items);
     } catch (error) {
       console.log("fetchPlaylist Error", error);
     } finally {

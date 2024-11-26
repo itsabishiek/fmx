@@ -4,17 +4,17 @@ import TrackSkeleton from "@/components/skeleton/TrackSkeleton";
 import { usePlayerContext } from "@/contexts/PlayerContext";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Audio } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { State } from "react-native-track-player";
 
 const LikedTracks = () => {
-  const { setCurrentTrack, play, isLoading, playBackState } =
+  const { setCurrentTrack, play, isLoading, playBackState, setQueue } =
     usePlayerContext();
   const [likedSongs, setLikedSongs] = useState<any[]>([]);
   const [isLoadingTrack, setIsLoadingTrack] = useState(true);
+  const value = useRef(0);
 
   const fetchLikedSongs = async () => {
     try {
@@ -35,6 +35,7 @@ const LikedTracks = () => {
 
       const data = await res.json();
       setLikedSongs(data?.items);
+      setQueue(data?.items);
     } catch (error) {
       console.log("fetchLikedSongs Error", error);
     } finally {
