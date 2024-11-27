@@ -40,6 +40,8 @@ export default function RootLayout() {
           <Stack.Screen name="index" />
           <Stack.Screen name="liked" />
           <Stack.Screen name="album/[albumId]/index" />
+          <Stack.Screen name="playlist/[playlistId]/index" />
+          <Stack.Screen name="artist/[artistId]/index" />
         </Stack>
       </View>
 

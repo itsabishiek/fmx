@@ -1,6 +1,6 @@
 import Container from "@/components/Container";
 import LoaderScreen from "@/components/LoaderScreen";
-import ArtistCard from "@/components/cards/ArtistCart";
+import ArtistCard from "@/components/cards/ArtistCard";
 import TrackCard from "@/components/cards/TrackCard";
 import TrackCardSkeleton from "@/components/skeleton/TrackCardSkeleton";
 import { ALBUM_PLACEHOLDER, AVATAR_PLACEHODER } from "@/constants";

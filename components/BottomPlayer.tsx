@@ -17,7 +17,6 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
   const [modalVisible, setModalVisible] = useState<any>(false);
   const {
     currentTrack,
-    play,
     isLoading,
     playpause,
     playBackState,
@@ -26,13 +25,11 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
     playPreviousTrack,
   } = usePlayerContext();
 
-  const artists = currentTrack?.track?.artists
-    ?.map((artist: any) => artist?.name)
-    ?.join(", ");
-
-  const playTrack = async () => {
-    await play(currentTrack);
-  };
+  const artists =
+    currentTrack?.track?.artists
+      ?.map((artist: any) => artist?.name)
+      ?.join(", ") ||
+    currentTrack?.artists?.map((artist: any) => artist?.name)?.join(", ");
 
   const trackName = () => {
     let name;
@@ -63,7 +60,7 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
       >
         <View className="bg-accent/95 mb-5 p-3 w-full h-[70px] flex flex-row items-center justify-between rounded-lg">
           <View className="flex flex-row items-center justify-between w-full">
-            {!currentTrack?.name && (
+            {!currentTrack?.name ? (
               <Image
                 source={{
                   uri:
@@ -72,6 +69,18 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 }}
                 className="w-[50px] h-[50px] mr-2"
               />
+            ) : (
+              <>
+                <Image
+                  source={{
+                    uri:
+                      currentTrack?.album?.images[0]?.url ||
+                      currentTrack?.albumImg ||
+                      ALBUM_PLACEHOLDER,
+                  }}
+                  className="w-[50px] h-[50px] mr-2"
+                />
+              </>
             )}
             <View className="">
               <Text
@@ -151,6 +160,8 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                   source={{
                     uri:
                       currentTrack?.track?.album?.images[0]?.url ||
+                      currentTrack?.album?.images[0]?.url ||
+                      currentTrack?.albumImg ||
                       ALBUM_PLACEHOLDER,
                   }}
                   className="h-[350px] w-full rounded-md"
@@ -159,7 +170,7 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                   className="text-white text-center mt-3 font-semibold text-xl"
                   numberOfLines={1}
                 >
-                  {currentTrack?.track?.name}
+                  {trackName()}
                 </Text>
                 <Text className="text-gray-300 text-center mt-1 font-semibold text-[16px]">
                   {artists}

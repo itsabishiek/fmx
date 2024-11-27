@@ -1,4 +1,4 @@
-import { View, Text, Button, Pressable, Image } from "react-native";
+import { View, Text, Pressable, Image } from "react-native";
 import React, { useEffect, useState } from "react";
 import Container from "@/components/Container";
 import * as WebBrowser from "expo-web-browser";
@@ -165,7 +165,7 @@ const Profile = () => {
                     className="flex flex-row items-center mb-3"
                     onPress={() =>
                       router.push({
-                        pathname: `/playlist/${playlist?.id}`,
+                        pathname: `/playlist/${playlist?.id}` as any,
                         params: {
                           playlistImg: playlist?.images[0].url,
                           playlistName: playlist?.name,

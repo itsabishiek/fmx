@@ -69,7 +69,10 @@ const Album = () => {
       }
     >
       <View className="absolute top-[-35px] right-5">
-        <Pressable className="bg-accent w-[60px] h-[60px] rounded-full flex items-center justify-center">
+        <Pressable
+          className="bg-accent w-[60px] h-[60px] rounded-full flex items-center justify-center"
+          onPress={playTrack}
+        >
           {isLoading ? (
             <ActivityIndicator color="white" size={28} />
           ) : (
@@ -99,9 +102,9 @@ const Album = () => {
             <>
               {albumTracks?.map((song: any, index) => {
                 const playTrack = async () => {
-                  setCurrentTrack(song);
+                  setCurrentTrack({ ...song, albumImg });
 
-                  await play(song);
+                  await play({ ...song, albumImg });
                 };
 
                 return (

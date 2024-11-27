@@ -17,6 +17,27 @@ const Track: React.FC<TrackProps> = ({ item }) => {
     await play(item);
   };
 
+  const trackName = () => {
+    let name;
+    if (item?.track?.name) {
+      if (item?.track?.name?.length > 26) {
+        name = `${item?.track?.name?.slice(0, 26)}...`;
+        return name;
+      } else {
+        name = item?.track?.name;
+        return name;
+      }
+    } else {
+      if (item?.name?.length > 26) {
+        name = `${item?.name?.slice(0, 26)}...`;
+        return name;
+      } else {
+        name = item?.name;
+        return name;
+      }
+    }
+  };
+
   return (
     <Pressable
       className="mb-4 flex-row items-center justify-between"
@@ -25,7 +46,10 @@ const Track: React.FC<TrackProps> = ({ item }) => {
       <View className="flex-row items-center flex-1 w-full">
         <Image
           source={{
-            uri: item?.track?.album?.images[0]?.url || ALBUM_PLACEHOLDER,
+            uri:
+              item?.track?.album?.images[0]?.url ||
+              item?.album?.images[0]?.url ||
+              ALBUM_PLACEHOLDER,
           }}
           className="w-[60px] h-[60px] rounded-md mr-2"
         />
@@ -34,12 +58,10 @@ const Track: React.FC<TrackProps> = ({ item }) => {
             className="text-white font-semibold text-[17px]"
             numberOfLines={1}
           >
-            {item?.track?.name?.length > 30
-              ? `${item?.track?.name?.slice(0, 30)}...`
-              : item?.track?.name}
+            {trackName()}
           </Text>
           <Text className="text-gray-400 font-semibold text-[15px]">
-            {item?.track?.artists?.[0]?.name}
+            {item?.track?.artists?.[0]?.name || item?.artists?.[0]?.name}
           </Text>
         </View>
       </View>

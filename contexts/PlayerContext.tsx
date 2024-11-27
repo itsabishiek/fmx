@@ -47,7 +47,7 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         song?.track?.artists?.[0]?.name || song?.artists?.[0]?.name;
 
       if (!songName || !artistName) {
-        console.error("Invalid song data.");
+        console.log("Invalid song data.");
         return;
       }
 

@@ -18,7 +18,7 @@ const TrackCard: React.FC<TrackCardProps> = ({ item, styles }) => {
       className={`bg-secondary p-3 mr-3 w-[200px] rounded-md ${styles}`}
       onPress={() =>
         router.push({
-          pathname: `/album/${item?.track?.album?.id}`,
+          pathname: `/album/${item?.track?.album?.id}` as any,
           params: {
             albumImg: item?.track?.album?.images[0].url,
             trackName: item?.track?.name,
