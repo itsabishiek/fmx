@@ -62,7 +62,8 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
       const songData = await res.json();
       const audioURL = songData?.data?.results?.[0]?.downloadUrl?.[3]?.url;
       if (!audioURL) {
-        console.error("No audio URL found.");
+        console.log("No audio URL found.");
+        playNextTrack();
         return;
       }
 

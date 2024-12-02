@@ -42,8 +42,10 @@ export default function Explore() {
 
       if (type === "track") {
         setSearchResult(data?.tracks?.items);
-      } else {
+      } else if (type === "album") {
         setSearchResult(data?.albums?.items);
+      } else {
+        setSearchResult(data?.playlists?.items);
       }
     } catch (error) {
       console.log("fetchSearchResults Error", error);
@@ -119,6 +121,22 @@ export default function Explore() {
                         Albums
                       </Text>
                     </Pressable>
+                    <Pressable
+                      className={`${
+                        type === "playlist" ? "bg-accent" : "bg-secondary-100"
+                      }  w-fit mr-3 p-2 px-3 rounded-full`}
+                      onPress={() => setType("playlist")}
+                    >
+                      <Text
+                        className={`${
+                          type === "playlist"
+                            ? "text-white font-semibold"
+                            : "text-gray-300"
+                        }`}
+                      >
+                        Playlists
+                      </Text>
+                    </Pressable>
                   </View>
 
                   {searchResult?.map((res, index) => {
@@ -139,13 +157,22 @@ export default function Explore() {
                         onPress={() => {
                           if (type === "track") {
                             playTrack();
-                          } else {
+                          } else if (type === "album") {
                             router.push({
                               pathname: `/album/${res?.id}` as any,
                               params: {
                                 albumImg: res?.images[0].url,
                                 trackName: res?.name,
                                 artists,
+                              },
+                            });
+                          } else {
+                            router.push({
+                              pathname: `/playlist/${res?.id}` as any,
+                              params: {
+                                playlistImg: res?.images[0].url,
+                                playlistName: res?.name,
+                                ownerName: res?.owner?.display_name,
                               },
                             });
                           }
@@ -171,8 +198,14 @@ export default function Explore() {
                                 : res?.name}
                             </Text>
                             <Text className="text-gray-400 font-semibold text-[15px]">
-                              {res?.type === "track" ? "Song" : "Album"} •{" "}
-                              {res?.artists?.[0]?.name}
+                              {res?.type === "track"
+                                ? "Song"
+                                : res?.type === "album"
+                                ? "Album"
+                                : "Playlist"}
+                              {res?.type !== "playlist"
+                                ? ` • ${res?.artists?.[0]?.name}`
+                                : ""}
                             </Text>
                           </View>
                         </View>

@@ -1,14 +1,15 @@
-import { View, Text, Pressable, Image, ActivityIndicator } from "react-native";
-import React, { useEffect, useRef, useState } from "react";
 import { ALBUM_PLACEHOLDER } from "@/constants";
-import { BottomModal, ModalContent } from "react-native-modals";
-import AntDesign from "@expo/vector-icons/AntDesign";
-import Entypo from "@expo/vector-icons/Entypo";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { colors } from "@/constants/Colors";
 import { usePlayerContext } from "@/contexts/PlayerContext";
+import { FontAwesome5 } from "@expo/vector-icons";
+import AntDesign from "@expo/vector-icons/AntDesign";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Slider from "@react-native-community/slider";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Pressable, Text, View } from "react-native";
+import { BottomModal, ModalContent } from "react-native-modals";
 import TrackPlayer, { State } from "react-native-track-player";
 
 interface BottomPlayerType {}
@@ -17,6 +18,7 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
   const [modalVisible, setModalVisible] = useState<any>(false);
   const {
     currentTrack,
+    setCurrentTrack,
     isLoading,
     playpause,
     playBackState,
@@ -24,6 +26,10 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
     playNextTrack,
     playPreviousTrack,
   } = usePlayerContext();
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
+  const [isLiked, setIsLiked] = useState(false);
+  const [bgColor, setBgColor] = useState("#5072A7");
 
   const artists =
     currentTrack?.track?.artists
@@ -52,6 +58,109 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
     }
   };
 
+  const saveTrackToLike = async (trackId: string) => {
+    try {
+      setIsSaving(true);
+
+      if (!isFetching && !isLiked) {
+        const accessToken = await AsyncStorage.getItem("accessToken");
+
+        const res = await fetch(
+          `https://api.spotify.com/v1/me/tracks?ids=${trackId}`,
+          {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          const errorText = await res.text(); // Attempt to get the error message
+          console.log("saveTrackToLike Error:", errorText);
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+
+        setIsLiked(true);
+      } else {
+        const accessToken = await AsyncStorage.getItem("accessToken");
+
+        const res = await fetch(
+          `https://api.spotify.com/v1/me/tracks?ids=${trackId}`,
+          {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          const errorText = await res.text(); // Attempt to get the error message
+          console.log("saveTrackToLike Error:", errorText);
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+
+        setIsLiked(false);
+      }
+    } catch (error) {
+      console.log("saveTrackToLike Error", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const checkIsLikedTrack = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+
+      const res = await fetch(
+        `https://api.spotify.com/v1/me/tracks/contains?ids=${
+          currentTrack?.track?.id ?? currentTrack?.id
+        }`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("checkIsLikedTrack Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      setIsLiked(data[0]);
+    } catch (error) {
+      console.log("checkIsLikedTrack Error", error);
+    } finally {
+      setIsFetching(false);
+    }
+  };
+
+  const closeCurrentTrack = async () => {
+    setCurrentTrack(null);
+    await TrackPlayer.reset();
+  };
+
+  const randomColors = async () => {
+    const randomIndex = Math.floor(Math.random() * colors.length);
+    const randomColor = colors[randomIndex];
+    setBgColor(randomColor);
+  };
+
+  useEffect(() => {
+    if (currentTrack) {
+      checkIsLikedTrack();
+      randomColors();
+    }
+  }, [currentTrack]);
+
   return (
     <>
       <Pressable
@@ -70,17 +179,15 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 className="w-[50px] h-[50px] mr-2"
               />
             ) : (
-              <>
-                <Image
-                  source={{
-                    uri:
-                      currentTrack?.album?.images[0]?.url ||
-                      currentTrack?.albumImg ||
-                      ALBUM_PLACEHOLDER,
-                  }}
-                  className="w-[50px] h-[50px] mr-2"
-                />
-              </>
+              <Image
+                source={{
+                  uri:
+                    currentTrack?.album?.images[0]?.url ||
+                    currentTrack?.albumImg ||
+                    ALBUM_PLACEHOLDER,
+                }}
+                className="w-[50px] h-[50px] mr-2"
+              />
             )}
             <View className="">
               <Text
@@ -138,7 +245,7 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
           style={{
             height: "100%",
             width: "100%",
-            backgroundColor: "#5072A7",
+            backgroundColor: bgColor,
           }}
         >
           <View className="mt-8 mb-8">
@@ -150,8 +257,9 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                 <Text className="text-white font-semibold text-xl">
                   Now Playing
                 </Text>
-                <Pressable onPress={() => setModalVisible(false)}>
-                  <Entypo name="dots-three-vertical" size={24} color="white" />
+                <Pressable onPress={closeCurrentTrack}>
+                  {/* <Entypo name="dots-three-vertical" size={24} color="white" /> */}
+                  <AntDesign name="close" size={24} color="white" />
                 </Pressable>
               </View>
 
@@ -166,13 +274,34 @@ const BottomPlayer: React.FC<BottomPlayerType> = ({}) => {
                   }}
                   className="h-[350px] w-full rounded-md"
                 />
-                <Text
-                  className="text-white text-center mt-3 font-semibold text-xl"
-                  numberOfLines={1}
-                >
-                  {trackName()}
-                </Text>
-                <Text className="text-gray-300 text-center mt-1 font-semibold text-[16px]">
+                <View className="flex-row items-center justify-between mt-3">
+                  <Text
+                    className="text-white text-center font-semibold text-xl"
+                    numberOfLines={1}
+                  >
+                    {trackName()}
+                  </Text>
+                  <Pressable
+                    onPress={() =>
+                      saveTrackToLike(
+                        currentTrack?.track?.id ?? currentTrack?.id
+                      )
+                    }
+                  >
+                    {isSaving ? (
+                      <ActivityIndicator color="white" size={28} />
+                    ) : (
+                      <>
+                        {isLiked ? (
+                          <AntDesign name="heart" size={30} color="#fd356d" />
+                        ) : (
+                          <AntDesign name="hearto" size={30} color="white" />
+                        )}
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+                <Text className="text-gray-300 mt-1 font-semibold text-[16px]">
                   {artists}
                 </Text>
               </View>

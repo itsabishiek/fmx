@@ -10,8 +10,15 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { State } from "react-native-track-player";
 
 const LikedTracks = () => {
-  const { setCurrentTrack, play, isLoading, playBackState, setQueue } =
-    usePlayerContext();
+  const {
+    currentTrack,
+    setCurrentTrack,
+    play,
+    isLoading,
+    playpause,
+    playBackState,
+    setQueue,
+  } = usePlayerContext();
   const [likedSongs, setLikedSongs] = useState<any[]>([]);
   const [isLoadingTrack, setIsLoadingTrack] = useState(true);
   const value = useRef(0);
@@ -48,11 +55,15 @@ const LikedTracks = () => {
   }, []);
 
   const playTrack = async () => {
-    if (likedSongs.length > 0) {
-      setCurrentTrack(likedSongs[0]);
-    }
+    if (currentTrack) {
+      playpause();
+    } else {
+      if (likedSongs.length > 0) {
+        setCurrentTrack(likedSongs[0]);
+      }
 
-    await play(likedSongs[0]);
+      await play(likedSongs[0]);
+    }
   };
 
   return (

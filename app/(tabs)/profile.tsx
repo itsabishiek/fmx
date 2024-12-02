@@ -159,39 +159,41 @@ const Profile = () => {
               </>
             ) : (
               <>
-                {playlists?.map((playlist, index) => (
-                  <Pressable
-                    key={index}
-                    className="flex flex-row items-center mb-3"
-                    onPress={() =>
-                      router.push({
-                        pathname: `/playlist/${playlist?.id}` as any,
-                        params: {
-                          playlistImg: playlist?.images[0].url,
-                          playlistName: playlist?.name,
-                          ownerName: playlist?.owner?.display_name,
-                          description: playlist?.description,
-                        },
-                      })
-                    }
-                  >
-                    <Image
-                      source={{
-                        uri: playlist?.images[0]?.url || ALBUM_PLACEHOLDER,
-                      }}
-                      className="w-[55px] h-[55px] mr-2 rounded"
-                    />
+                {playlists
+                  ?.filter((item) => item !== null)
+                  ?.map((playlist, index) => (
+                    <Pressable
+                      key={index}
+                      className="flex flex-row items-center mb-3"
+                      onPress={() =>
+                        router.push({
+                          pathname: `/playlist/${playlist?.id}` as any,
+                          params: {
+                            playlistImg: playlist?.images[0].url,
+                            playlistName: playlist?.name,
+                            ownerName: playlist?.owner?.display_name,
+                            description: playlist?.description,
+                          },
+                        })
+                      }
+                    >
+                      <Image
+                        source={{
+                          uri: playlist?.images[0]?.url || ALBUM_PLACEHOLDER,
+                        }}
+                        className="w-[55px] h-[55px] mr-2 rounded"
+                      />
 
-                    <View>
-                      <Text className="text-white text-lg font-bold">
-                        {playlist?.name}
-                      </Text>
-                      <Text className="text-gray-400 font-bold">
-                        {playlist?.owner?.display_name}
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
+                      <View>
+                        <Text className="text-white text-lg font-bold">
+                          {playlist?.name}
+                        </Text>
+                        <Text className="text-gray-400 font-bold">
+                          {playlist?.owner?.display_name}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
               </>
             )}
           </View>

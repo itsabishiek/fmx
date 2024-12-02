@@ -28,11 +28,13 @@ const LoginScreen = () => {
         "user-read-email",
         "user-read-private",
         "user-library-read",
+        "user-library-modify",
         "user-read-recently-played",
         "user-top-read",
         "playlist-read-private",
         "playlist-read-collaborative",
-        "playlist-modify-public", // or "playlist-modify-private"
+        "playlist-modify-public",
+        "playlist-modify-private",
       ],
       usePKCE: false,
       redirectUri: makeRedirectUri({
