@@ -59,6 +59,8 @@ const ArtistTracks = () => {
     await play(artistTracks[0]);
   };
 
+  console.log("artist", artistTracks[0]?.uri);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor="#19191c"

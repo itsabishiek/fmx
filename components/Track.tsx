@@ -3,13 +3,15 @@ import React from "react";
 import Entypo from "@expo/vector-icons/Entypo";
 import { ALBUM_PLACEHOLDER } from "@/constants";
 import { usePlayerContext } from "@/contexts/PlayerContext";
+import TrackMenu from "./TrackMenu";
 
 interface TrackProps {
   item: any;
 }
 
 const Track: React.FC<TrackProps> = ({ item }) => {
-  const { setCurrentTrack, play } = usePlayerContext();
+  const { setCurrentTrack, play, setIsTrackMenuVisible, setSelectedTrackId } =
+    usePlayerContext();
 
   const playTrack = async () => {
     setCurrentTrack(item);
@@ -66,7 +68,13 @@ const Track: React.FC<TrackProps> = ({ item }) => {
         </View>
       </View>
 
-      <Pressable>
+      <Pressable
+        onPress={(e) => {
+          e.stopPropagation();
+          setIsTrackMenuVisible(true);
+          setSelectedTrackId(item?.track?.uri ?? item?.uri ?? item?.album?.uri);
+        }}
+      >
         <Entypo name="dots-three-vertical" size={24} color="gray" />
       </Pressable>
     </Pressable>

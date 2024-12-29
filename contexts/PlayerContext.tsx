@@ -22,6 +22,9 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
   const progress = useProgress();
   const value = useRef(0);
 
+  const [isTrackMenuVisible, setIsTrackMenuVisible] = useState(false);
+  const [selectedTrackId, setSelectedTrackId] = useState("");
+
   const setupTrackPlayer = async () => {
     try {
       await TrackPlayer.setupPlayer();
@@ -164,6 +167,10 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
         setQueue,
         playPreviousTrack,
         playNextTrack,
+        isTrackMenuVisible,
+        setIsTrackMenuVisible,
+        selectedTrackId,
+        setSelectedTrackId,
       }}
     >
       {children}

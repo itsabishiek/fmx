@@ -107,7 +107,7 @@ const Playlist = () => {
             {playlistTracks?.length > 0 ? (
               <>
                 {playlistTracks
-                  ?.filter((obj) => obj?.track?.name !== "")
+                  ?.filter((obj) => obj?.track !== null)
                   ?.map((song, index) => (
                     <Track key={index} item={song} />
                   ))}
