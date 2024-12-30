@@ -1,19 +1,25 @@
-import { View, Text, Image, Pressable } from "react-native";
-import React from "react";
-import Entypo from "@expo/vector-icons/Entypo";
 import { ALBUM_PLACEHOLDER } from "@/constants";
 import { usePlayerContext } from "@/contexts/PlayerContext";
-import TrackMenu from "./TrackMenu";
+import Entypo from "@expo/vector-icons/Entypo";
+import React from "react";
+import { Image, Pressable, Text, View } from "react-native";
 
 interface TrackProps {
   item: any;
+  index?: number;
 }
 
-const Track: React.FC<TrackProps> = ({ item }) => {
-  const { setCurrentTrack, play, setIsTrackMenuVisible, setSelectedTrackId } =
-    usePlayerContext();
+const Track: React.FC<TrackProps> = ({ item, index }) => {
+  const {
+    setCurrentTrack,
+    play,
+    value,
+    setIsTrackMenuVisible,
+    setSelectedTrackId,
+  } = usePlayerContext();
 
   const playTrack = async () => {
+    value.current = index;
     setCurrentTrack(item);
 
     await play(item);

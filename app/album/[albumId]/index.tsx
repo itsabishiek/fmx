@@ -12,6 +12,7 @@ import { State } from "react-native-track-player";
 const Album = () => {
   const { albumId, albumImg, trackName, artists } = useLocalSearchParams();
   const {
+    value,
     setCurrentTrack,
     play,
     isLoading,
@@ -112,6 +113,7 @@ const Album = () => {
               <>
                 {albumTracks?.map((song: any, index) => {
                   const playTrack = async () => {
+                    value.current = index;
                     setCurrentTrack({ ...song, albumImg });
 
                     await play({ ...song, albumImg });

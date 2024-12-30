@@ -98,8 +98,8 @@ const TrackMenu: React.FC<TrackMenuProps> = ({
     fetchUserPlaylists();
   }, []);
 
-  console.log("uri", selectedTrackId);
-  console.log("playlistId", playlists[0]?.id);
+  // console.log("uri", selectedTrackId);
+  // console.log("playlistId", playlists[0]?.id);
 
   return (
     <>

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import TrackPlayer, {
   State,
@@ -121,10 +122,61 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
 
         await play(nextTrack);
       } else {
+        value.current = 0;
         console.log("End of the playlist");
       }
     } catch (error) {
       console.log("playNextTrack Error", error);
+    }
+  };
+
+  const getNewReleases = async () => {
+    try {
+      const accessToken = await AsyncStorage.getItem("accessToken");
+
+      const res = await fetch(
+        `https://api.spotify.com/v1/browse/new-releases`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        const errorText = await res.text(); // Attempt to get the error message
+        console.log("getNewReleases Error:", errorText);
+        throw new Error(`HTTP Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+
+      if (data?.albums?.items?.length > 0) {
+        const res = await fetch(
+          `https://api.spotify.com/v1/albums/${data?.albums?.items?.[0]?.id}/tracks?market=IN`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          const errorText = await res.text(); // Attempt to get the error message
+          console.log("getAlbumTracks Error:", errorText);
+          throw new Error(`HTTP Error: ${res.status}`);
+        }
+
+        const trackData = await res.json();
+        setQueue(trackData?.items);
+
+        setCurrentTrack(trackData?.items[0]);
+        await play(trackData?.items[0]);
+      }
+    } catch (error) {
+      console.log("getNewReleases Error", error);
     }
   };
 
@@ -133,12 +185,20 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
     async (event) => {
       if (event.type === Event.PlaybackQueueEnded) {
         console.log("Playback queue ended");
+
+        if (queue?.length === 0 || queue?.length === undefined) {
+          getNewReleases();
+        }
         playNextTrack();
       } else if (
         event.type === Event.PlaybackTrackChanged &&
         event.nextTrack == null
       ) {
         console.log("Track finished");
+
+        if (queue?.length === 0 || queue?.length === undefined) {
+          getNewReleases();
+        }
         playNextTrack();
       }
     }
@@ -155,6 +215,7 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
   return (
     <PlayerContext.Provider
       value={{
+        value,
         currentTrack,
         setCurrentTrack,
         isLoading,

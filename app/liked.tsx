@@ -6,7 +6,7 @@ import { usePlayerContext } from "@/contexts/PlayerContext";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { LinearGradient } from "expo-linear-gradient";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { State } from "react-native-track-player";
 
@@ -24,7 +24,6 @@ const LikedTracks = () => {
   } = usePlayerContext();
   const [likedSongs, setLikedSongs] = useState<any[]>([]);
   const [isLoadingTrack, setIsLoadingTrack] = useState(true);
-  const value = useRef(0);
 
   const fetchLikedSongs = async () => {
     try {
@@ -121,7 +120,7 @@ const LikedTracks = () => {
                   {likedSongs
                     ?.filter((obj) => obj?.track?.name !== "")
                     ?.map((song, index) => (
-                      <Track key={index} item={song} />
+                      <Track key={index} item={song} index={index} />
                     ))}
                 </>
               ) : (

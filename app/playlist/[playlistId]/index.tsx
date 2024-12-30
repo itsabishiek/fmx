@@ -109,7 +109,7 @@ const Playlist = () => {
                 {playlistTracks
                   ?.filter((obj) => obj?.track !== null)
                   ?.map((song, index) => (
-                    <Track key={index} item={song} />
+                    <Track key={index} item={song} index={index} />
                   ))}
               </>
             ) : (
