@@ -56,7 +56,7 @@ const PlayerContextProvider = ({ children }: { children: React.ReactNode }) => {
       }
 
       const res = await fetch(
-        `https://saavn.dev/api/search/songs?query=${songName} ${artistName}`
+        `https://saavn.sumit.co/api/search/songs?query=${songName} ${artistName}`
       );
 
       if (!res.ok) {
