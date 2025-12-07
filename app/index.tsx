@@ -21,9 +21,15 @@ const discovery = {
 };
 
 const LoginScreen = () => {
+  const clientId = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID;
+  const clientSecret = process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET;
+  const redirectUri = makeRedirectUri({
+    scheme: "fmx",
+  });
+
   const [request, response, promptAsync] = useAuthRequest(
     {
-      clientId: process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID as string,
+      clientId: clientId as string,
       scopes: [
         "user-read-email",
         "user-read-private",
@@ -37,13 +43,12 @@ const LoginScreen = () => {
         "playlist-modify-private",
       ],
       usePKCE: false,
-      redirectUri: makeRedirectUri({
-        scheme: "fmx",
-      }),
+      redirectUri: redirectUri,
     },
     discovery
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkTokenValidity = async () => {
@@ -66,22 +71,33 @@ const LoginScreen = () => {
 
   const fetchAccessToken = async (code: string) => {
     try {
+      if (!clientId || !clientSecret) {
+        throw new Error(
+          "Spotify credentials are missing. Please set EXPO_PUBLIC_SPOTIFY_CLIENT_ID and EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET in your .env file."
+        );
+      }
+
       const res = await fetch(discovery.tokenEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${btoa(
-            `${process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID}:${process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET}`
-          )}`,
+          Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
         },
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          redirect_uri: makeRedirectUri({ scheme: "fmx" }),
+          redirect_uri: redirectUri,
         }).toString(),
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Spotify API Error:", data);
+        throw new Error(
+          data.error_description || data.error || "Failed to get access token"
+        );
+      }
 
       if (data?.access_token && data?.refresh_token) {
         const expiresIn = Date.now() + data.expires_in * 1000;
@@ -92,20 +108,23 @@ const LoginScreen = () => {
 
         router.push("/home");
       }
-    } catch (error) {
-      console.log("fetchAccessToken Error", error);
+    } catch (error: any) {
+      console.error("fetchAccessToken Error", error);
+      setError(error?.message || "Failed to authenticate with Spotify");
     }
   };
 
   const fetchRefreshToken = async (refreshToken: string) => {
     try {
+      if (!clientId || !clientSecret) {
+        throw new Error("Spotify credentials are missing.");
+      }
+
       const res = await fetch(discovery.tokenEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: `Basic ${btoa(
-            `${process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_ID}:${process.env.EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET}`
-          )}`,
+          Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
         },
         body: new URLSearchParams({
           grant_type: "refresh_token",
@@ -114,6 +133,13 @@ const LoginScreen = () => {
       });
 
       const data = await res.json();
+
+      if (!res.ok) {
+        console.error("Spotify Refresh Token Error:", data);
+        throw new Error(
+          data.error_description || data.error || "Failed to refresh token"
+        );
+      }
 
       if (data?.access_token) {
         const expiresIn = Date.now() + data.expires_in * 1000;
@@ -129,16 +155,23 @@ const LoginScreen = () => {
 
         router.push("/home");
       }
-    } catch (error) {
-      console.log("fetchRefreshToken Error", error);
+    } catch (error: any) {
+      console.error("fetchRefreshToken Error", error);
+      setError(error?.message || "Failed to refresh token");
     }
   };
 
   useEffect(() => {
     if (response?.type === "success") {
       const { code } = response.params;
-
+      setError(null);
       fetchAccessToken(code);
+    } else if (response?.type === "error") {
+      console.error("Auth Response Error:", response.error);
+      setError(
+        response.error?.message ||
+          "Authentication failed. Please check your Spotify credentials and redirect URI configuration."
+      );
     }
   }, [response]);
 
@@ -169,10 +202,37 @@ const LoginScreen = () => {
             />
           </View>
 
+          {error && (
+            <View className="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-4 w-full">
+              <Text className="text-red-300 text-center font-semibold">
+                {error}
+              </Text>
+              <Text className="text-red-200 text-center text-sm mt-2">
+                Check console for redirect URI and verify it matches your
+                Spotify App settings.
+              </Text>
+            </View>
+          )}
+
+          {!clientId && (
+            <View className="bg-yellow-500/20 border border-yellow-500 rounded-lg p-4 mb-4 w-full">
+              <Text className="text-yellow-300 text-center font-semibold">
+                Missing Spotify Client ID
+              </Text>
+              <Text className="text-yellow-200 text-center text-sm mt-2">
+                Create a .env file with EXPO_PUBLIC_SPOTIFY_CLIENT_ID and
+                EXPO_PUBLIC_SPOTIFY_CLIENT_SECRET
+              </Text>
+            </View>
+          )}
+
           <TouchableOpacity
             className="bg-accent flex flex-row items-center justify-center p-4 w-full rounded-full"
-            onPress={() => promptAsync()}
-            disabled={!request}
+            onPress={() => {
+              setError(null);
+              promptAsync();
+            }}
+            disabled={!request || !clientId}
           >
             <Entypo name="spotify" size={28} color="white" />
             <Text className="text-primary font-bold ml-2 text-xl">
