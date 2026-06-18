@@ -3,5 +3,30 @@
     "source.fixAll": "explicit",
     "source.organizeImports": "explicit",
     "source.sortMembers": "explicit"
+  },
+
+  // The React Native build is driven by Gradle directly (gradlew / `expo run:android`),
+  // not by VS Code's Java language server. Stop the Java/Gradle extensions from importing
+  // the Gradle *plugins* inside node_modules (and generated build dirs) as Java projects —
+  // that's what produces the bogus "missing shared-testutil.jar" / "build path errors".
+  "java.import.exclusions": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/build/**",
+    "**/.gradle/**",
+    "**/.expo/**"
+  ],
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.import.gradle.enabled": false,
+  "gradle.nestedProjects": false,
+
+  "files.exclude": {
+    "**/.expo": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/android/build/**": true,
+    "**/android/app/build/**": true,
+    "**/.gradle/**": true
   }
 }
