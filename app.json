@@ -12,7 +12,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.fmx.app",
       "infoPlist": {
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {
@@ -48,6 +50,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3e8ac210-3480-4554-b885-293cecca3428"
+      }
+    },
+    "owner": "abishiek"
   }
 }
