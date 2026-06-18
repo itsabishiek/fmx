@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getArtist, getSongSuggestions, searchSongs } from '@/api/endpoints';
+import { getSongSuggestions, searchSongs } from '@/api/endpoints';
 import type { AppSong } from '@/api/types';
 import { playableSongs } from '@/player/track';
 import { useHistoryStore } from '@/store/historyStore';
@@ -88,38 +88,27 @@ export function aggregateSuggestions(
 
 /**
  * Resilient fallback for when the `/suggestions` radio is unavailable (e.g. the endpoint
- * 500s, as it sometimes does upstream). Builds picks from the healthy `/artists` (top
- * artists' catalogue) and `/search` (dominant-language) endpoints instead.
+ * 500s, as it sometimes does upstream). A single dominant-language `/search` keeps "Made For
+ * You" full with varied artists — fast and robust on flaky networks, and naturally distinct
+ * from the "More from {top artist}" shelf (which covers the user's #1 artist separately).
  */
 async function fallbackRecommendations(
-  topArtists: { id: string; name: string }[],
-  dominantLanguage: string | undefined,
+  query: string | undefined,
   exclude: Set<string>,
   signal?: AbortSignal,
 ): Promise<AppSong[]> {
-  const pool: AppSong[] = [];
-  for (const a of topArtists.slice(0, 2)) {
-    try {
-      const artist = await getArtist(a.id, signal);
-      pool.push(...artist.topSongs);
-    } catch {
-      // ignore a failing artist
-    }
+  if (!query) return [];
+  try {
+    const { items } = await searchSongs(query, 0, 30, signal);
+    const seen = new Set<string>();
+    return playableSongs(items).filter((s) => {
+      if (exclude.has(s.id) || seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+  } catch {
+    return [];
   }
-  if (dominantLanguage) {
-    try {
-      const { items } = await searchSongs(dominantLanguage, 0, 20, signal);
-      pool.push(...items);
-    } catch {
-      // ignore
-    }
-  }
-  const seen = new Set<string>();
-  return playableSongs(pool).filter((s) => {
-    if (exclude.has(s.id) || seen.has(s.id)) return false;
-    seen.add(s.id);
-    return true;
-  });
 }
 
 /**
@@ -164,9 +153,8 @@ export function useRecommendations(): Recommendations & { isLoading: boolean } {
 
       // The radio gave us little/nothing — fall back to healthy endpoints so the shelf still fills.
       if (madeForYou.length < 4) {
-        madeForYou = (
-          await fallbackRecommendations(topArtists, dominantLanguage, exclude, signal)
-        ).slice(0, 20);
+        const query = dominantLanguage ?? topArtists[0]?.name;
+        madeForYou = (await fallbackRecommendations(query, exclude, signal)).slice(0, 20);
       }
       return { madeForYou, shelves };
     },

@@ -1,5 +1,6 @@
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { AppSong } from '@/api/types';
 import { AppText } from '@/components/AppText';
 import { HorizontalShelf } from '@/components/HorizontalShelf';
 import { SongShelf } from '@/components/SongShelf';
@@ -19,17 +20,32 @@ function greeting() {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { data, isLoading, isError, refetch } = useHomeFeed();
+  // Each data source is independent — the screen renders immediately and sections fill in as they
+  // resolve, instead of one slow query (the curated feed) gating the whole page.
+  const feed = useHomeFeed();
   const recentlyPlayed = useHistoryStore((s) => s.recentlyPlayed);
-
-  // Client-only recommendations (multi-seed radio) + the user's top artist.
   const { madeForYou, shelves } = useRecommendations();
   const topArtist = useHistoryStore((s) => s.topArtists)(1)[0];
   const { data: artist } = useArtist(topArtist?.id);
   const moreFromArtist = artist ? playableSongs(artist.topSongs) : [];
 
-  if (isLoading) return <Loading label="Loading your music…" />;
-  if (isError || !data) return <ErrorState onRetry={refetch} />;
+  // Cross-section de-dup: reserve songs for the most specific shelf first (an artist's own shelf,
+  // then per-seed radios), so "Made For You" never repeats what's already shown elsewhere.
+  const seen = new Set<string>();
+  const dedupe = (songs: AppSong[]) => {
+    const out: AppSong[] = [];
+    for (const s of songs) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      out.push(s);
+    }
+    return out;
+  };
+  const moreFrom = dedupe(moreFromArtist);
+  const becauseShelves = shelves
+    .map((sh) => ({ seed: sh.seed, songs: dedupe(sh.songs) }))
+    .filter((sh) => sh.songs.length >= 4);
+  const made = dedupe(madeForYou);
 
   return (
     <ScrollView
@@ -47,11 +63,11 @@ export default function HomeScreen() {
         <SongShelf title="Recently Played" songs={recentlyPlayed} />
       ) : null}
 
-      {madeForYou.length > 0 ? (
-        <SongShelf title="Made For You" subtitle="Based on your listening" songs={madeForYou} />
+      {made.length > 0 ? (
+        <SongShelf title="Made For You" subtitle="Based on your listening" songs={made} />
       ) : null}
 
-      {shelves.map((shelf) => (
+      {becauseShelves.map((shelf) => (
         <SongShelf
           key={shelf.seed.id}
           title={`Because you listened to ${shelf.seed.title}`}
@@ -59,19 +75,32 @@ export default function HomeScreen() {
         />
       ))}
 
-      {moreFromArtist.length > 0 ? (
-        <SongShelf title={`More from ${topArtist.name}`} songs={moreFromArtist} />
+      {moreFrom.length > 0 ? (
+        <SongShelf title={`More from ${topArtist.name}`} songs={moreFrom} />
       ) : null}
 
-      <HorizontalShelf title="Top Picks" items={data.hero} cardSize={220} />
-
-      {data.sections.map((section) => (
-        <HorizontalShelf key={section.key} title={section.title} items={section.items} />
-      ))}
+      {/* Curated feed — fills in independently; its slowness no longer blocks the page. */}
+      {feed.data ? (
+        <>
+          <HorizontalShelf title="Top Picks" items={feed.data.hero} cardSize={220} />
+          {feed.data.sections.map((section) => (
+            <HorizontalShelf key={section.key} title={section.title} items={section.items} />
+          ))}
+        </>
+      ) : feed.isLoading ? (
+        <View style={styles.feedState}>
+          <Loading label="Loading your music…" />
+        </View>
+      ) : feed.isError ? (
+        <View style={styles.feedState}>
+          <ErrorState onRetry={feed.refetch} />
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   header: { paddingHorizontal: spacing.base, marginBottom: spacing.lg },
+  feedState: { height: 260 },
 });
