@@ -20,9 +20,11 @@ const SPRING = { damping: 22, stiffness: 240 } as const;
 
 type Positions = Record<string, number>;
 
+// Identity is the row's *slot index*, not song.id — the queue can legitimately hold the same
+// song twice (duplicate ids would collide and collapse two rows onto one slot).
 function buildPositions(songs: AppSong[]): Positions {
   const p: Positions = {};
-  songs.forEach((s, i) => (p[s.id] = i));
+  songs.forEach((_, i) => (p[i] = i));
   return p;
 }
 
@@ -66,7 +68,7 @@ export function DraggableQueue({ songs, startIndex, onReorder, onJump, onRemove 
     <View style={{ height: songs.length * ROW_H }}>
       {songs.map((song, i) => (
         <QueueItem
-          key={song.id}
+          key={`${i}-${song.id}`}
           song={song}
           index={i}
           positions={positions}
@@ -104,7 +106,7 @@ function QueueItem({
 
   // Follow our slot whenever positions change and we're not the one being dragged.
   useAnimatedReaction(
-    () => positions.value[song.id],
+    () => positions.value[index],
     (pos) => {
       if (!active.value && pos != null) top.value = withSpring(pos * ROW_H, SPRING);
     },
@@ -114,23 +116,23 @@ function QueueItem({
     .activateAfterLongPress(220)
     .onStart(() => {
       active.value = true;
-      startPos.value = positions.value[song.id] ?? 0;
+      startPos.value = positions.value[index] ?? 0;
     })
     .onUpdate((e) => {
       const y = startPos.value * ROW_H + e.translationY;
       top.value = y;
       const newPos = clamp(Math.round(y / ROW_H), 0, count - 1);
-      const curPos = positions.value[song.id];
+      const curPos = positions.value[index];
       if (newPos !== curPos) positions.value = objectMove(positions.value, curPos, newPos);
     })
     .onEnd(() => {
-      const finalPos = positions.value[song.id] ?? startPos.value;
+      const finalPos = positions.value[index] ?? startPos.value;
       top.value = withSpring(finalPos * ROW_H, SPRING);
     })
     .onFinalize(() => {
       if (!active.value) return;
       active.value = false;
-      const finalPos = positions.value[song.id] ?? startPos.value;
+      const finalPos = positions.value[index] ?? startPos.value;
       if (finalPos !== startPos.value) {
         runOnJS(onReorder)(startIndex + startPos.value, startIndex + finalPos);
       }

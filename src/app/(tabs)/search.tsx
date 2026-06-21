@@ -10,10 +10,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { AppSong } from '@/api/types';
+import type { AppCard, AppSong } from '@/api/types';
 import { AppText } from '@/components/AppText';
+import { Artwork } from '@/components/Artwork';
 import { HorizontalShelf } from '@/components/HorizontalShelf';
-import { MediaCard } from '@/components/MediaCard';
+import { MediaCard, navigateToCard } from '@/components/MediaCard';
 import { SongRow } from '@/components/SongRow';
 import { SongShelf } from '@/components/SongShelf';
 import { Loading, EmptyState } from '@/components/states';
@@ -25,7 +26,7 @@ import {
   useSearchSongs,
 } from '@/hooks/queries';
 import { playSong } from '@/player/controls';
-import { useHistoryStore } from '@/store/historyStore';
+import { useHistoryStore, type RecentSearchItem } from '@/store/historyStore';
 import { layout, palette, radius, spacing } from '@/theme';
 
 type Tab = 'top' | 'songs' | 'albums' | 'artists' | 'playlists';
@@ -46,7 +47,9 @@ export default function SearchScreen() {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [tab, setTab] = useState<Tab>('top');
-  const { recentSearches, addSearch, clearSearches } = useHistoryStore();
+  const addSearch = useHistoryStore((s) => s.addSearch);
+  const recentSearchItems = useHistoryStore((s) => s.recentSearchItems);
+  const clearSearchItems = useHistoryStore((s) => s.clearSearchItems);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -105,7 +108,7 @@ export default function SearchScreen() {
       </View>
 
       {!showResults ? (
-        <RecentSearches recent={recentSearches} onPick={setQuery} onClear={clearSearches} />
+        <RecentTaps items={recentSearchItems} onClear={clearSearchItems} />
       ) : tab === 'top' ? (
         <TopResults query={debounced} />
       ) : tab === 'songs' ? (
@@ -117,43 +120,55 @@ export default function SearchScreen() {
   );
 }
 
-function RecentSearches({
-  recent,
-  onPick,
-  onClear,
-}: {
-  recent: string[];
-  onPick: (q: string) => void;
-  onClear: () => void;
-}) {
-  if (recent.length === 0) {
+const TYPE_LABEL: Record<AppCard['type'], string> = {
+  song: 'Song',
+  album: 'Album',
+  artist: 'Artist',
+  playlist: 'Playlist',
+};
+
+/** Search landing: the songs/albums/artists/playlists the user recently opened from Search. */
+function RecentTaps({ items, onClear }: { items: RecentSearchItem[]; onClear: () => void }) {
+  if (items.length === 0) {
     return (
       <EmptyState
         icon="search-outline"
         title="Find your next favorite"
-        subtitle="Search for songs, artists, albums and playlists."
+        subtitle="Search for songs, artists, albums and playlists — what you open shows up here."
       />
     );
   }
   return (
     <ScrollView contentContainerStyle={{ paddingBottom: layout.scrollBottomPad }}>
       <View style={styles.recentHeader}>
-        <AppText variant="title3">Recent Searches</AppText>
+        <AppText variant="title3">Recently Opened</AppText>
         <Pressable onPress={onClear} hitSlop={8}>
           <AppText variant="callout" color="accent">
             Clear
           </AppText>
         </Pressable>
       </View>
-      {recent.map((q) => (
-        <Pressable key={q} style={styles.recentRow} onPress={() => onPick(q)}>
-          <Ionicons name="time-outline" size={20} color={palette.textSecondary} />
-          <AppText variant="body" style={{ flex: 1 }}>
-            {q}
-          </AppText>
-          <Ionicons name="arrow-up-outline" size={18} color={palette.textTertiary} style={styles.diagonal} />
-        </Pressable>
-      ))}
+      {items.map((it) =>
+        it.kind === 'song' ? (
+          <SongRow key={`song-${it.song.id}`} song={it.song} onPress={() => playSong(it.song)} />
+        ) : (
+          <Pressable
+            key={`${it.card.type}-${it.card.id}`}
+            style={styles.itemRow}
+            onPress={() => navigateToCard(it.card)}>
+            <Artwork uri={it.card.image} size={48} round={it.card.round} rounded="sm" />
+            <View style={{ flex: 1, marginLeft: spacing.md }}>
+              <AppText variant="body" numberOfLines={1}>
+                {it.card.title}
+              </AppText>
+              <AppText variant="subhead" color="secondary" numberOfLines={1}>
+                {it.card.subtitle || TYPE_LABEL[it.card.type]}
+              </AppText>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={palette.textTertiary} />
+          </Pressable>
+        ),
+      )}
     </ScrollView>
   );
 }
@@ -161,6 +176,8 @@ function RecentSearches({
 function TopResults({ query }: { query: string }) {
   const songs = useSearchSongs(query);
   const global = useGlobalSearch(query);
+  const addSearchItem = useHistoryStore((s) => s.addSearchItem);
+  const recordCard = (card: AppCard) => addSearchItem({ kind: 'card', card });
   const songItems: AppSong[] = useMemo(
     () => (songs.data?.pages.flatMap((p) => p.items) ?? []).slice(0, 12),
     [songs.data],
@@ -170,16 +187,22 @@ function TopResults({ query }: { query: string }) {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: spacing.base, paddingBottom: layout.scrollBottomPad }}>
-      <SongShelf title="Songs" songs={songItems} playSingle />
-      <HorizontalShelf title="Artists" items={global.data?.artists ?? []} cardSize={130} />
-      <HorizontalShelf title="Albums" items={global.data?.albums ?? []} />
-      <HorizontalShelf title="Playlists" items={global.data?.playlists ?? []} />
+      <SongShelf
+        title="Songs"
+        songs={songItems}
+        playSingle
+        onItemPress={(song) => addSearchItem({ kind: 'song', song })}
+      />
+      <HorizontalShelf title="Artists" items={global.data?.artists ?? []} cardSize={130} onItemPress={recordCard} />
+      <HorizontalShelf title="Albums" items={global.data?.albums ?? []} onItemPress={recordCard} />
+      <HorizontalShelf title="Playlists" items={global.data?.playlists ?? []} onItemPress={recordCard} />
     </ScrollView>
   );
 }
 
 function SongResults({ query }: { query: string }) {
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useSearchSongs(query);
+  const addSearchItem = useHistoryStore((s) => s.addSearchItem);
   const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
 
   if (isLoading) return <Loading />;
@@ -190,7 +213,15 @@ function SongResults({ query }: { query: string }) {
       data={items}
       keyExtractor={(item, i) => `${item.id}-${i}`}
       contentContainerStyle={{ paddingBottom: layout.scrollBottomPad }}
-      renderItem={({ item }) => <SongRow song={item} onPress={() => playSong(item)} />}
+      renderItem={({ item }) => (
+        <SongRow
+          song={item}
+          onPress={() => {
+            addSearchItem({ kind: 'song', song: item });
+            playSong(item);
+          }}
+        />
+      )}
       onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
       onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}
@@ -203,6 +234,7 @@ function CardGrid({ query, kind }: { query: string; kind: 'albums' | 'artists' |
   const artists = useSearchArtists(query);
   const playlists = useSearchPlaylists(query);
   const q = kind === 'albums' ? albums : kind === 'artists' ? artists : playlists;
+  const addSearchItem = useHistoryStore((s) => s.addSearchItem);
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data]);
 
   if (q.isLoading) return <Loading />;
@@ -215,7 +247,16 @@ function CardGrid({ query, kind }: { query: string; kind: 'albums' | 'artists' |
       keyExtractor={(item, i) => `${item.id}-${i}`}
       columnWrapperStyle={{ gap: GAP, paddingHorizontal: spacing.base }}
       contentContainerStyle={{ paddingTop: spacing.base, paddingBottom: layout.scrollBottomPad, gap: spacing.lg }}
-      renderItem={({ item }) => <MediaCard item={item} size={CARD} />}
+      renderItem={({ item }) => (
+        <MediaCard
+          item={item}
+          size={CARD}
+          onPress={() => {
+            addSearchItem({ kind: 'card', card: item });
+            navigateToCard(item);
+          }}
+        />
+      )}
       onEndReached={() => q.hasNextPage && !q.isFetchingNextPage && q.fetchNextPage()}
       onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}
@@ -253,12 +294,10 @@ const styles = StyleSheet.create({
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
   },
-  recentRow: {
+  itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
   },
-  diagonal: { transform: [{ rotate: '45deg' }] },
 });

@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppSong } from '@/api/types';
+import type { AppCard, AppSong } from '@/api/types';
 import { storageKey, zustandStorage } from './storage';
 
 const MAX_HISTORY = 60;
 const MAX_SEARCHES = 12;
+const MAX_SEARCH_ITEMS = 24;
 
 export interface ArtistAffinity {
   id: string;
@@ -12,9 +13,18 @@ export interface ArtistAffinity {
   count: number;
 }
 
+/** A song or browse-item the user opened from the Search tab (shown on the search landing). */
+export type RecentSearchItem =
+  | { kind: 'song'; song: AppSong }
+  | { kind: 'card'; card: AppCard };
+
+const itemKey = (i: RecentSearchItem) => (i.kind === 'song' ? `song:${i.song.id}` : `${i.card.type}:${i.card.id}`);
+
 interface HistoryState {
   recentlyPlayed: AppSong[];
   recentSearches: string[];
+  /** Songs/items the user opened from Search, newest first (shown on the search landing). */
+  recentSearchItems: RecentSearchItem[];
   /** Play counts per primary artist id — drives "More from {artist}" + seed picking. */
   artistPlays: Record<string, { name: string; count: number }>;
   /** Play counts per language — drives the "dominant language" personalization bias. */
@@ -22,7 +32,9 @@ interface HistoryState {
 
   addToHistory: (song: AppSong) => void;
   addSearch: (query: string) => void;
+  addSearchItem: (item: RecentSearchItem) => void;
   clearSearches: () => void;
+  clearSearchItems: () => void;
   clearHistory: () => void;
 
   /** Top artists by play count, most-played first. */
@@ -36,6 +48,7 @@ export const useHistoryStore = create<HistoryState>()(
     (set, get) => ({
       recentlyPlayed: [],
       recentSearches: [],
+      recentSearchItems: [],
       artistPlays: {},
       languagePlays: {},
 
@@ -73,7 +86,18 @@ export const useHistoryStore = create<HistoryState>()(
           ),
         }));
       },
+      addSearchItem: (item) =>
+        set((s) => {
+          const k = itemKey(item);
+          return {
+            recentSearchItems: [item, ...s.recentSearchItems.filter((x) => itemKey(x) !== k)].slice(
+              0,
+              MAX_SEARCH_ITEMS,
+            ),
+          };
+        }),
       clearSearches: () => set({ recentSearches: [] }),
+      clearSearchItems: () => set({ recentSearchItems: [] }),
       clearHistory: () => set({ recentlyPlayed: [], artistPlays: {}, languagePlays: {} }),
 
       topArtists: (limit = 10) =>

@@ -37,7 +37,7 @@ const svg = (inner) =>
 // The bolt scaled about the canvas centre. `1` = the raw path (~66% of the canvas).
 // ICON_SCALE < 1 leaves accent margin inside the circular launcher mask; the notification
 // glyph is scaled UP so it nearly fills its small status-bar canvas and stays legible.
-const ICON_SCALE = 0.8;
+const ICON_SCALE = 0.6;
 const NOTIF_SCALE = 1.35;
 const bolt = (scale = 1) =>
   `<g transform="translate(516 512) scale(${scale}) translate(-516 -512)"><path d="${BOLT}" fill="#ffffff"/></g>`;

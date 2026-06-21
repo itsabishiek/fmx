@@ -9,7 +9,7 @@ import { DraggableQueue } from '@/components/DraggableQueue';
 import { EmptyState } from '@/components/states';
 import { SectionHeader } from '@/components/HorizontalShelf';
 import { clearQueue, moveInQueue, removeFromQueue } from '@/player/controls';
-import { useCurrentSong, useQueueSongs } from '@/player/usePlayer';
+import { useActiveIndex, useCurrentSong, useQueueSongs } from '@/player/usePlayer';
 import { layout, palette, spacing } from '@/theme';
 
 export default function QueueScreen() {
@@ -17,7 +17,10 @@ export default function QueueScreen() {
   const queue = useQueueSongs();
   const current = useCurrentSong();
 
-  const currentIndex = current ? queue.findIndex((s) => s.id === current.id) : -1;
+  // Use the real active *index* (not findIndex-by-id) so duplicate songs in the queue don't
+  // resolve to the wrong row — which would mis-slice "upcoming" and break reorder/remove.
+  const activeIndex = useActiveIndex();
+  const currentIndex = activeIndex >= 0 && activeIndex < queue.length ? activeIndex : -1;
   const upcoming = currentIndex >= 0 ? queue.slice(currentIndex + 1) : queue;
 
   const jumpTo = async (absoluteIndex: number) => {

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import TrackPlayer, {
+  Event,
   RepeatMode,
   useActiveTrack,
   useIsPlaying,
   useProgress,
+  useTrackPlayerEvents,
 } from 'react-native-track-player';
 import type { AppSong } from '@/api/types';
 import { usePlaybackStore } from './playbackStore';
@@ -63,6 +65,23 @@ export function useCurrentSong(): AppSong | null {
 
 export function useQueueSongs() {
   return usePlaybackStore((s) => s.queueSongs);
+}
+
+/**
+ * The active track's *position* in the queue (the source of truth, robust to duplicate song ids —
+ * unlike matching by id, since the same song can legitimately appear twice). -1 when idle.
+ */
+export function useActiveIndex(): number {
+  const [index, setIndex] = useState(-1);
+  useEffect(() => {
+    TrackPlayer.getActiveTrackIndex()
+      .then((i) => setIndex(i ?? -1))
+      .catch(() => {});
+  }, []);
+  useTrackPlayerEvents([Event.PlaybackActiveTrackChanged], (e) => {
+    if (e.type === Event.PlaybackActiveTrackChanged) setIndex(e.index ?? -1);
+  });
+  return index;
 }
 
 export function useShuffle() {
