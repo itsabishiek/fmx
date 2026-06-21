@@ -64,10 +64,11 @@ export function DraggableQueue({ songs, startIndex, onReorder, onJump, onRemove 
 
   return (
     <View style={{ height: songs.length * ROW_H }}>
-      {songs.map((song) => (
+      {songs.map((song, i) => (
         <QueueItem
           key={song.id}
           song={song}
+          index={i}
           positions={positions}
           count={songs.length}
           startIndex={startIndex}
@@ -82,6 +83,7 @@ export function DraggableQueue({ songs, startIndex, onReorder, onJump, onRemove 
 
 function QueueItem({
   song,
+  index,
   positions,
   count,
   startIndex,
@@ -90,12 +92,14 @@ function QueueItem({
   onRemove,
 }: {
   song: AppSong;
+  index: number;
   positions: SharedValue<Positions>;
   count: number;
   startIndex: number;
 } & Pick<Props, 'onReorder' | 'onJump' | 'onRemove'>) {
   const active = useSharedValue(false);
-  const top = useSharedValue((positions.value[song.id] ?? 0) * ROW_H);
+  // Initialise from the render-time slot (`index`); never read positions.value during render.
+  const top = useSharedValue(index * ROW_H);
   const startPos = useSharedValue(0);
 
   // Follow our slot whenever positions change and we're not the one being dragged.
@@ -148,7 +152,7 @@ function QueueItem({
     elevation: active.value ? 8 : 0,
   }));
 
-  const absoluteIndex = startIndex + (positions.value[song.id] ?? 0);
+  const absoluteIndex = startIndex + index;
 
   return (
     <Animated.View style={style}>

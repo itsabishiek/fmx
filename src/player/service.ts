@@ -27,15 +27,50 @@ export const PlaybackService = async () => {
     await TrackPlayer.seekTo(Math.max(0, position - (interval ?? 15)));
   });
 
-  // Keep the runtime "current song" in sync and record listening history.
+  // Keep the runtime "current song" in sync and record listening history. The displayed
+  // metadata must ALWAYS follow the actually-playing track — so prefer the full AppSong from
+  // the queue mirror, but if that lookup misses (e.g. after a reorder), reconstruct from the
+  // track's own fields rather than leaving stale artwork/title on screen.
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async ({ track }) => {
-    const id = (track as { songId?: string } | undefined)?.songId;
+    const t = track as
+      | {
+          id?: string | number;
+          songId?: string;
+          title?: string;
+          artist?: string;
+          album?: string;
+          artwork?: string;
+          duration?: number;
+          albumId?: string;
+          artistId?: string;
+          language?: string;
+          hasLyrics?: boolean;
+          url?: string;
+        }
+      | undefined;
+    if (!t) return;
+    const id = t.songId ?? (t.id != null ? String(t.id) : undefined);
     if (!id) return;
-    const song: AppSong | undefined = usePlaybackStore.getState().songById(id);
-    if (song) {
-      usePlaybackStore.getState().setCurrentSong(song);
-      useHistoryStore.getState().addToHistory(song);
-    }
+
+    const song: AppSong =
+      usePlaybackStore.getState().songById(id) ?? {
+        id,
+        title: t.title ?? '',
+        artistName: t.artist ?? '',
+        artistId: t.artistId,
+        albumName: t.album,
+        albumId: t.albumId,
+        artwork: t.artwork ?? '',
+        artworkSmall: t.artwork ?? '',
+        duration: typeof t.duration === 'number' ? t.duration : 0,
+        language: t.language,
+        hasLyrics: !!t.hasLyrics,
+        downloadUrls: [],
+        url: t.url,
+      };
+
+    usePlaybackStore.getState().setCurrentSong(song);
+    useHistoryStore.getState().addToHistory(song);
   });
 
   // Autoplay: when the last track finishes, extend the queue with suggestions.
