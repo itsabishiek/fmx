@@ -3,6 +3,8 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { RepeatMode } from 'react-native-track-player';
@@ -46,6 +48,24 @@ export default function PlayerScreen() {
   // result decide what to show (lyrics vs. a graceful "not available" message).
   const lyrics = useLyrics(song?.id, showLyrics);
 
+  // Swipe-down-to-dismiss (Android has no native modal swipe). Declared before the early return
+  // so hook order stays stable.
+  const translateY = useSharedValue(0);
+  const cardStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }));
+  const dismissGesture = Gesture.Pan()
+    .activeOffsetY([16, 9999]) // only downward drags; horizontal/upward are ignored
+    .failOffsetX([-24, 24]) // let the Seekbar own horizontal gestures
+    .onUpdate((e) => {
+      translateY.value = Math.max(0, e.translationY);
+    })
+    .onEnd((e) => {
+      if (e.translationY > 120 || e.velocityY > 900) {
+        runOnJS(router.back)();
+      } else {
+        translateY.value = withSpring(0, { damping: 22, stiffness: 220 });
+      }
+    });
+
   if (!song) {
     return (
       <View style={{ flex: 1, backgroundColor: palette.background }}>
@@ -60,7 +80,8 @@ export default function PlayerScreen() {
   const repeatColor = repeatMode === RepeatMode.Off ? palette.textSecondary : palette.accent;
 
   return (
-    <View style={{ flex: 1, backgroundColor: palette.background }}>
+    <GestureDetector gesture={dismissGesture}>
+      <Animated.View style={[{ flex: 1, backgroundColor: palette.background }, cardStyle]}>
       <Image source={{ uri: song.artwork }} style={StyleSheet.absoluteFill} contentFit="cover" blurRadius={80} />
       <LinearGradient
         colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.92)']}
@@ -190,7 +211,8 @@ export default function PlayerScreen() {
           </Pressable>
         </View>
       </View>
-    </View>
+      </Animated.View>
+    </GestureDetector>
   );
 }
 

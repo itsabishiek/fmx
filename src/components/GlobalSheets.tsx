@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +17,22 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useUIStore } from '@/store/uiStore';
 import { AppText } from './AppText';
 import { Artwork } from './Artwork';
+import { Toast } from './Toast';
+
+/** A bottom sheet that lifts above the keyboard (for sheets containing a TextInput). */
+function KeyboardSheet({ onBackdrop, children }: { onBackdrop: () => void; children: React.ReactNode }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Backdrop onPress={onBackdrop} />
+      <KeyboardAvoidingView
+        style={styles.kav}
+        pointerEvents="box-none"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={styles.sheetFlex}>{children}</View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
 
 function Backdrop({ onPress }: { onPress: () => void }) {
   return <Pressable style={styles.backdrop} onPress={onPress} />;
@@ -137,8 +155,7 @@ function AddToPlaylistSheet() {
       transparent
       animationType="slide"
       onRequestClose={() => { reset(); close(); }}>
-      <Backdrop onPress={() => { reset(); close(); }} />
-      <View style={styles.sheet}>
+      <KeyboardSheet onBackdrop={() => { reset(); close(); }}>
         <AppText variant="title3" style={{ marginBottom: spacing.md }}>
           Add to Playlist
         </AppText>
@@ -182,7 +199,7 @@ function AddToPlaylistSheet() {
             </AppText>
           ) : null}
         </ScrollView>
-      </View>
+      </KeyboardSheet>
     </Modal>
   );
 }
@@ -205,8 +222,7 @@ function CreatePlaylistModal() {
 
   return (
     <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
-      <Backdrop onPress={close} />
-      <View style={styles.sheet}>
+      <KeyboardSheet onBackdrop={close}>
         <AppText variant="title3" style={{ marginBottom: spacing.md }}>
           New Playlist
         </AppText>
@@ -226,7 +242,7 @@ function CreatePlaylistModal() {
             </AppText>
           </Pressable>
         </View>
-      </View>
+      </KeyboardSheet>
     </Modal>
   );
 }
@@ -238,6 +254,7 @@ export function GlobalSheets() {
       <SongActionsSheet />
       <AddToPlaylistSheet />
       <CreatePlaylistModal />
+      <Toast />
     </>
   );
 }
@@ -249,6 +266,18 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+    backgroundColor: palette.elevated,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingHorizontal: spacing.base,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxxl,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  // Flex variant used inside KeyboardAvoidingView so the sheet rises above the keyboard.
+  kav: { flex: 1, justifyContent: 'flex-end' },
+  sheetFlex: {
     backgroundColor: palette.elevated,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,

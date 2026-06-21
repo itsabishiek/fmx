@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import type { AppSong } from '@/api/types';
 import { spacing } from '@/theme';
-import { playSongList } from '@/player/controls';
+import { playSong, playSongList } from '@/player/controls';
 import { useUIStore } from '@/store/uiStore';
 import { AppText } from './AppText';
 import { Artwork } from './Artwork';
@@ -12,10 +12,13 @@ interface SongShelfProps {
   subtitle?: string;
   songs: AppSong[];
   size?: number;
+  /** When true, tapping plays just that song (queue = that song) instead of the whole shelf.
+   *  Used for search results, which aren't a coherent collection. */
+  playSingle?: boolean;
 }
 
 /** Horizontal shelf of songs; tapping plays the whole shelf starting at that song. */
-export function SongShelf({ title, subtitle, songs, size = 150 }: SongShelfProps) {
+export function SongShelf({ title, subtitle, songs, size = 150, playSingle }: SongShelfProps) {
   const openActions = useUIStore((s) => s.openSongActions);
   if (!songs.length) return null;
 
@@ -32,7 +35,7 @@ export function SongShelf({ title, subtitle, songs, size = 150 }: SongShelfProps
         renderItem={({ item, index }) => (
           <Pressable
             style={{ width: size }}
-            onPress={() => playSongList(songs, index)}
+            onPress={() => (playSingle ? playSong(item) : playSongList(songs, index))}
             onLongPress={() => openActions(item)}>
             <Artwork uri={item.artwork} size={size} rounded="md" />
             <AppText variant="callout" numberOfLines={1} style={{ marginTop: spacing.sm }}>

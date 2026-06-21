@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppText } from '@/components/AppText';
 import { Artwork } from '@/components/Artwork';
+import { DraggableQueue } from '@/components/DraggableQueue';
 import { EmptyState } from '@/components/states';
 import { SectionHeader } from '@/components/HorizontalShelf';
 import { clearQueue, moveInQueue, removeFromQueue } from '@/player/controls';
@@ -64,51 +65,14 @@ export default function QueueScreen() {
 
           {upcoming.length > 0 ? (
             <View style={{ marginTop: spacing.base }}>
-              <SectionHeader title="Up Next" />
-              {upcoming.map((song, i) => {
-                const absoluteIndex = currentIndex + 1 + i;
-                return (
-                  <Pressable
-                    key={`${song.id}-${absoluteIndex}`}
-                    style={({ pressed }) => [styles.row, pressed && { backgroundColor: palette.surface }]}
-                    onPress={() => jumpTo(absoluteIndex)}>
-                    <Artwork uri={song.artworkSmall} size={48} rounded="sm" />
-                    <View style={styles.meta}>
-                      <AppText variant="body" numberOfLines={1}>
-                        {song.title}
-                      </AppText>
-                      <AppText variant="subhead" color="secondary" numberOfLines={1}>
-                        {song.artistName}
-                      </AppText>
-                    </View>
-                    <Pressable
-                      hitSlop={8}
-                      disabled={i === 0}
-                      onPress={() => moveInQueue(absoluteIndex, absoluteIndex - 1)}
-                      style={styles.ctrl}>
-                      <Ionicons
-                        name="chevron-up"
-                        size={20}
-                        color={i === 0 ? palette.textTertiary : palette.textSecondary}
-                      />
-                    </Pressable>
-                    <Pressable
-                      hitSlop={8}
-                      disabled={i === upcoming.length - 1}
-                      onPress={() => moveInQueue(absoluteIndex, absoluteIndex + 1)}
-                      style={styles.ctrl}>
-                      <Ionicons
-                        name="chevron-down"
-                        size={20}
-                        color={i === upcoming.length - 1 ? palette.textTertiary : palette.textSecondary}
-                      />
-                    </Pressable>
-                    <Pressable hitSlop={8} onPress={() => removeFromQueue(absoluteIndex)} style={styles.ctrl}>
-                      <Ionicons name="remove-circle-outline" size={22} color={palette.textSecondary} />
-                    </Pressable>
-                  </Pressable>
-                );
-              })}
+              <SectionHeader title="Up Next" subtitle="Long-press a row to drag & reorder" />
+              <DraggableQueue
+                songs={upcoming}
+                startIndex={currentIndex + 1}
+                onReorder={moveInQueue}
+                onJump={jumpTo}
+                onRemove={removeFromQueue}
+              />
             </View>
           ) : null}
         </ScrollView>

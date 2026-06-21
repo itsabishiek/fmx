@@ -24,7 +24,7 @@ import {
   useSearchPlaylists,
   useSearchSongs,
 } from '@/hooks/queries';
-import { playSongList } from '@/player/controls';
+import { playSong } from '@/player/controls';
 import { useHistoryStore } from '@/store/historyStore';
 import { layout, palette, radius, spacing } from '@/theme';
 
@@ -170,7 +170,7 @@ function TopResults({ query }: { query: string }) {
 
   return (
     <ScrollView contentContainerStyle={{ paddingTop: spacing.base, paddingBottom: layout.scrollBottomPad }}>
-      <SongShelf title="Songs" songs={songItems} />
+      <SongShelf title="Songs" songs={songItems} playSingle />
       <HorizontalShelf title="Artists" items={global.data?.artists ?? []} cardSize={130} />
       <HorizontalShelf title="Albums" items={global.data?.albums ?? []} />
       <HorizontalShelf title="Playlists" items={global.data?.playlists ?? []} />
@@ -190,9 +190,7 @@ function SongResults({ query }: { query: string }) {
       data={items}
       keyExtractor={(item, i) => `${item.id}-${i}`}
       contentContainerStyle={{ paddingBottom: layout.scrollBottomPad }}
-      renderItem={({ item, index }) => (
-        <SongRow song={item} onPress={() => playSongList(items, index)} />
-      )}
+      renderItem={({ item }) => <SongRow song={item} onPress={() => playSong(item)} />}
       onEndReached={() => hasNextPage && !isFetchingNextPage && fetchNextPage()}
       onEndReachedThreshold={0.5}
       showsVerticalScrollIndicator={false}

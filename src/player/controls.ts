@@ -2,6 +2,7 @@ import TrackPlayer, { RepeatMode, State } from 'react-native-track-player';
 import type { AppSong } from '@/api/types';
 import { getSongSuggestions } from '@/api/endpoints';
 import { useSettingsStore } from '@/store/settingsStore';
+import { useUIStore } from '@/store/uiStore';
 import { usePlaybackStore } from './playbackStore';
 import { setupPlayer } from './setup';
 import { playableSongs, songToTrack } from './track';
@@ -51,24 +52,49 @@ export async function playSong(song: AppSong): Promise<void> {
   await playSongList([song], 0);
 }
 
-/** Insert a song right after the currently playing track. */
+/** Insert a song right after the currently playing track (or play now if nothing is playing). */
 export async function playNext(song: AppSong): Promise<void> {
   await setupPlayer();
+  if (!playableSongs([song]).length) {
+    useUIStore.getState().showToast('Song unavailable');
+    return;
+  }
   const idx = (await TrackPlayer.getActiveTrackIndex()) ?? -1;
+  const wasIdle = idx < 0 || usePlaybackStore.getState().queueSongs.length === 0;
   const insertAt = idx >= 0 ? idx + 1 : undefined;
   await TrackPlayer.add([songToTrack(song)], insertAt);
   const queue = usePlaybackStore.getState().queueSongs;
   const next = [...queue];
   next.splice(insertAt ?? next.length, 0, song);
   usePlaybackStore.getState().setQueueSongs(next);
+  if (wasIdle) {
+    usePlaybackStore.getState().setCurrentSong(song);
+    await TrackPlayer.play();
+    useUIStore.getState().showToast('Playing now');
+  } else {
+    useUIStore.getState().showToast('Playing next');
+  }
 }
 
-/** Append a song to the end of the queue. */
+/** Append a song to the end of the queue (or start playing it if nothing is playing). */
 export async function addToQueue(song: AppSong): Promise<void> {
   await setupPlayer();
+  if (!playableSongs([song]).length) {
+    useUIStore.getState().showToast('Song unavailable');
+    return;
+  }
+  const activeIndex = await TrackPlayer.getActiveTrackIndex();
+  const wasIdle = activeIndex == null || usePlaybackStore.getState().queueSongs.length === 0;
   await TrackPlayer.add([songToTrack(song)]);
   const queue = usePlaybackStore.getState().queueSongs;
   usePlaybackStore.getState().setQueueSongs([...queue, song]);
+  if (wasIdle) {
+    usePlaybackStore.getState().setCurrentSong(song);
+    await TrackPlayer.play();
+    useUIStore.getState().showToast('Playing now');
+  } else {
+    useUIStore.getState().showToast('Added to queue');
+  }
 }
 
 export async function togglePlayback(): Promise<void> {
