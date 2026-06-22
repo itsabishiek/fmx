@@ -7,7 +7,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AppSong } from '@/api/types';
 import { palette, spacing } from '@/theme';
 import { addToQueue, playNext } from '@/player/controls';
-import { usePlaybackStore } from '@/player/playbackStore';
 import { useCurrentSong, useIsPlaying } from '@/player/usePlayer';
 import { useUIStore } from '@/store/uiStore';
 import { AppText } from './AppText';
@@ -51,8 +50,6 @@ function SongRowBase({ song, onPress, index, playlistId, showArtwork = true }: S
   const current = useCurrentSong();
   const { playing } = useIsPlaying();
   const isCurrent = current?.id === song.id;
-  // Already in the queue? First swipe (not queued) plays it next; afterwards it appends.
-  const isQueued = usePlaybackStore((s) => s.queueSongs.some((x) => x.id === song.id));
   const openActions = useUIStore((s) => s.openSongActions);
   const swipeRef = useRef<SwipeableMethods>(null);
 
@@ -61,19 +58,23 @@ function SongRowBase({ song, onPress, index, playlistId, showArtwork = true }: S
       ref={swipeRef}
       friction={2}
       leftThreshold={56}
+      rightThreshold={56}
       overshootLeft={false}
       overshootRight={false}
-      // Swipe right reveals one smart action: Play Next the first time, Add to Queue thereafter.
+      // `direction` is the swipe direction: swipe right → Add to Queue, swipe left → Play Next.
       renderLeftActions={() => (
+        <SwipeAction icon="list" label="Queue" bg={palette.accent} align="flex-start" />
+      )}
+      renderRightActions={() => (
         <SwipeAction
-          icon={isQueued ? 'list' : 'play-skip-forward'}
-          label={isQueued ? 'Add to Queue' : 'Play Next'}
-          bg={palette.accent}
-          align="flex-start"
+          icon="play-skip-forward"
+          label="Play Next"
+          bg={palette.surfaceAlt}
+          align="flex-end"
         />
       )}
-      onSwipeableWillOpen={() => {
-        if (isQueued) addToQueue(song);
+      onSwipeableWillOpen={(direction) => {
+        if (direction === 'right') addToQueue(song);
         else playNext(song);
         swipeRef.current?.close();
       }}>
