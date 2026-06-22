@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { palette, radius, spacing } from '@/theme';
@@ -19,17 +19,36 @@ import { AppText } from './AppText';
 import { Artwork } from './Artwork';
 import { Toast } from './Toast';
 
-/** A bottom sheet that lifts above the keyboard (for sheets containing a TextInput). */
+/**
+ * A bottom sheet that lifts above the keyboard (for sheets containing a TextInput).
+ * Uses global Keyboard events + a Reanimated padding lift rather than KeyboardAvoidingView —
+ * inside a Modal, KAV `behavior="height"` fights the Activity's adjustResize and flickers
+ * continuously on dismiss. Global Keyboard events fire regardless of window, so this is stable.
+ */
 function KeyboardSheet({ onBackdrop, children }: { onBackdrop: () => void; children: React.ReactNode }) {
+  const offset = useSharedValue(0);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      offset.value = withTiming(e.endCoordinates.height, { duration: 150 });
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => {
+      offset.value = withTiming(0, { duration: 150 });
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [offset]);
+
+  const liftStyle = useAnimatedStyle(() => ({ paddingBottom: offset.value }));
+
   return (
     <View style={{ flex: 1 }}>
       <Backdrop onPress={onBackdrop} />
-      <KeyboardAvoidingView
-        style={styles.kav}
-        pointerEvents="box-none"
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <Animated.View style={[styles.kav, liftStyle]} pointerEvents="box-none">
         <View style={styles.sheetFlex}>{children}</View>
-      </KeyboardAvoidingView>
+      </Animated.View>
     </View>
   );
 }
