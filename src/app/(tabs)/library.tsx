@@ -7,6 +7,7 @@ import { Artwork } from '@/components/Artwork';
 import { MediaCard } from '@/components/MediaCard';
 import { SectionHeader } from '@/components/HorizontalShelf';
 import { EmptyState } from '@/components/states';
+import { useAuthStore } from '@/store/authStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useUIStore } from '@/store/uiStore';
 import { layout, palette, spacing } from '@/theme';
@@ -42,6 +43,8 @@ export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { favorites, playlists, savedItems } = useLibraryStore();
   const openCreate = useUIStore((s) => s.openCreatePlaylist);
+  const signedIn = useAuthStore((s) => s.status === 'signedIn');
+  const avatarUrl = useAuthStore((s) => s.profile?.avatarUrl);
 
   return (
     <ScrollView
@@ -50,9 +53,18 @@ export default function LibraryScreen() {
       showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <AppText variant="largeTitle">Library</AppText>
-        <Pressable onPress={openCreate} hitSlop={8}>
-          <Ionicons name="add" size={30} color={palette.accent} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => router.push('/account')} hitSlop={8}>
+            {signedIn && avatarUrl ? (
+              <Artwork uri={avatarUrl} size={30} round />
+            ) : (
+              <Ionicons name="person-circle-outline" size={30} color={palette.textPrimary} />
+            )}
+          </Pressable>
+          <Pressable onPress={openCreate} hitSlop={8}>
+            <Ionicons name="add" size={30} color={palette.accent} />
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.menu}>
@@ -124,6 +136,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.base,
     marginBottom: spacing.base,
   },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.base },
   menu: { paddingHorizontal: spacing.base, marginBottom: spacing.lg },
   menuRow: {
     flexDirection: 'row',

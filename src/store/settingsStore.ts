@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { syncPreferences } from '@/lib/sync';
 import { storageKey, zustandStorage } from './storage';
 
 export type AudioQuality = '96kbps' | '160kbps' | '320kbps';
@@ -11,6 +12,8 @@ interface SettingsState {
   autoplay: boolean;
   setAudioQuality: (q: AudioQuality) => void;
   toggleAutoplay: () => void;
+  /** Apply synced preferences from the cloud reconcile (does NOT write back). */
+  replaceFromRemote: (data: Partial<Pick<SettingsState, 'audioQuality' | 'autoplay'>>) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -18,8 +21,15 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       audioQuality: '320kbps',
       autoplay: true,
-      setAudioQuality: (audioQuality) => set({ audioQuality }),
-      toggleAutoplay: () => set((s) => ({ autoplay: !s.autoplay })),
+      setAudioQuality: (audioQuality) => {
+        set({ audioQuality });
+        syncPreferences();
+      },
+      toggleAutoplay: () => {
+        set((s) => ({ autoplay: !s.autoplay }));
+        syncPreferences();
+      },
+      replaceFromRemote: (data) => set(data),
     }),
     { name: storageKey('settings'), storage: zustandStorage },
   ),

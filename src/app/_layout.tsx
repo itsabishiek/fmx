@@ -6,6 +6,7 @@ import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { palette } from '@/theme';
 import { setupPlayer } from '@/player/setup';
+import { useAuthStore } from '@/store/authStore';
 import { GlobalSheets } from '@/components/GlobalSheets';
 import { GlobalMiniPlayer } from '@/components/MiniPlayer';
 
@@ -33,6 +34,12 @@ export default function RootLayout() {
     setupPlayer().catch(() => {});
   }, []);
 
+  useEffect(() => {
+    // Restore any persisted Supabase session and start cloud sync. Returns the
+    // unsubscribe so the auth listener is cleaned up on unmount.
+    return useAuthStore.getState().init();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
@@ -50,6 +57,7 @@ export default function RootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
               />
               <Stack.Screen name="queue" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="account" options={{ presentation: 'modal' }} />
               <Stack.Screen name="album/[id]" />
               <Stack.Screen name="artist/[id]" />
               <Stack.Screen name="playlist/[id]" />
