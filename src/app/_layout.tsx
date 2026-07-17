@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { palette } from '@/theme';
 import { setupPlayer } from '@/player/setup';
 import { useAuthStore } from '@/store/authStore';
+import { initSync } from '@/lib/sync';
 import { GlobalSheets } from '@/components/GlobalSheets';
 import { GlobalMiniPlayer } from '@/components/MiniPlayer';
 
@@ -35,9 +36,11 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    // Restore any persisted Supabase session and start cloud sync. Returns the
-    // unsubscribe so the auth listener is cleaned up on unmount.
-    return useAuthStore.getState().init();
+    // Restore any persisted Supabase session, then start cloud sync (which subscribes to auth
+    // status to drive reconciles). init() returns the unsubscribe for the auth listener.
+    const unsub = useAuthStore.getState().init();
+    initSync();
+    return unsub;
   }, []);
 
   return (

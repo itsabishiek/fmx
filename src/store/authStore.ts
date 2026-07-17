@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import type { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { reconcileOnSignIn, registerForegroundSync } from '@/lib/sync';
 import { useUIStore } from './uiStore';
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
@@ -64,13 +63,12 @@ export const useAuthStore = create<AuthState>((set) => ({
       return () => {};
     }
     configureGoogle();
-    registerForegroundSync();
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    // Mirror gotrue's session into the store. The sync engine (initSync) subscribes to `status`
+    // and drives the cloud reconcile on sign-in — this store has no dependency on it.
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user ?? null;
       set({ session: session ?? null, user, profile: profileFromUser(user), status: session ? 'signedIn' : 'signedOut' });
-      // INITIAL_SESSION fires once on subscribe (boot restore); SIGNED_IN on a fresh login.
-      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) void reconcileOnSignIn();
     });
 
     return () => data.subscription.unsubscribe();

@@ -4,13 +4,17 @@ import type { AudioQuality } from '@/store/settingsStore';
 import { useAuthStore } from '@/store/authStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useSettingsStore } from '@/store/settingsStore';
+import { registerSync } from './syncBridge';
 import { supabase } from './supabase';
 
 /**
- * Cloud sync engine. The local zustand stores remain the UI source of truth and
- * offline cache; these helpers mirror durable library data to Supabase. Every
- * write-through helper is a NO-OP when signed out, so the app works exactly the
- * same with no account.
+ * Cloud sync engine. The local zustand stores remain the UI source of truth and offline cache;
+ * these helpers mirror durable library data to Supabase. Every write-through helper is a NO-OP when
+ * signed out, so the app works exactly the same with no account.
+ *
+ * The stores invoke these via the dependency-free `syncBridge` (registered below) rather than
+ * importing this module directly — that keeps the store <-> sync dependency one-directional and
+ * avoids a require cycle.
  */
 
 const uid = (): string | null => useAuthStore.getState().user?.id ?? null;
@@ -25,34 +29,34 @@ function run(ctx: string, query: PromiseLike<{ error: unknown }>): void {
 }
 
 // ---------------------------------------------------------------------------
-// Write-through helpers — called from store actions after the local set().
+// Write-through helpers — invoked from store actions (via syncBridge) after the local set().
 // ---------------------------------------------------------------------------
 
-export function syncLikeAdded(song: AppSong): void {
+function likeAdded(song: AppSong): void {
   const user_id = uid();
   if (!user_id) return;
   run('like add', supabase.from('liked_songs').upsert({ user_id, song_id: song.id, song }));
 }
 
-export function syncLikeRemoved(songId: string): void {
+function likeRemoved(songId: string): void {
   const user_id = uid();
   if (!user_id) return;
   run('like remove', supabase.from('liked_songs').delete().match({ user_id, song_id: songId }));
 }
 
-export function syncSavedAdded(item: AppCard): void {
+function savedAdded(item: AppCard): void {
   const user_id = uid();
   if (!user_id) return;
   run('saved add', supabase.from('saved_items').upsert({ user_id, item_id: item.id, item }));
 }
 
-export function syncSavedRemoved(itemId: string): void {
+function savedRemoved(itemId: string): void {
   const user_id = uid();
   if (!user_id) return;
   run('saved remove', supabase.from('saved_items').delete().match({ user_id, item_id: itemId }));
 }
 
-export function syncPlaylistCreated(p: LocalPlaylist): void {
+function playlistCreated(p: LocalPlaylist): void {
   const user_id = uid();
   if (!user_id) return;
   run(
@@ -65,20 +69,20 @@ export function syncPlaylistCreated(p: LocalPlaylist): void {
   }
 }
 
-export function syncPlaylistRenamed(id: string, name: string): void {
+function playlistRenamed(id: string, name: string): void {
   const user_id = uid();
   if (!user_id) return;
   run('playlist rename', supabase.from('playlists').update({ name }).match({ id, user_id }));
 }
 
-export function syncPlaylistDeleted(id: string): void {
+function playlistDeleted(id: string): void {
   const user_id = uid();
   if (!user_id) return;
   // playlist_songs cascade-delete via FK.
   run('playlist delete', supabase.from('playlists').delete().match({ id, user_id }));
 }
 
-export function syncPlaylistSongAdded(playlistId: string, song: AppSong): void {
+function playlistSongAdded(playlistId: string, song: AppSong): void {
   const user_id = uid();
   if (!user_id) return;
   const p = useLibraryStore.getState().playlists.find((x) => x.id === playlistId);
@@ -91,7 +95,7 @@ export function syncPlaylistSongAdded(playlistId: string, song: AppSong): void {
   );
 }
 
-export function syncPlaylistSongRemoved(playlistId: string, songId: string): void {
+function playlistSongRemoved(playlistId: string, songId: string): void {
   const user_id = uid();
   if (!user_id) return;
   run(
@@ -100,7 +104,7 @@ export function syncPlaylistSongRemoved(playlistId: string, songId: string): voi
   );
 }
 
-export function syncPreferences(): void {
+function preferences(): void {
   const user_id = uid();
   if (!user_id) return;
   const { audioQuality, autoplay } = useSettingsStore.getState();
@@ -111,6 +115,20 @@ export function syncPreferences(): void {
       .upsert({ user_id, audio_quality: audioQuality, autoplay, updated_at: new Date().toISOString() }),
   );
 }
+
+// Wire the real implementations into the bridge so the stores can call them without importing us.
+registerSync({
+  likeAdded,
+  likeRemoved,
+  savedAdded,
+  savedRemoved,
+  playlistCreated,
+  playlistRenamed,
+  playlistDeleted,
+  playlistSongAdded,
+  playlistSongRemoved,
+  preferences,
+});
 
 // ---------------------------------------------------------------------------
 // Reconcile — pull remote, union-merge with local, apply, then push local-only.
@@ -176,12 +194,12 @@ async function pushAll(
 let lastReconcile = 0;
 
 /**
- * Full two-way reconcile, triggered on sign-in and on app foreground. Pulls
- * remote rows, union-merges with the local cache (nothing is lost), applies the
- * merged set locally, then pushes the merged set back up (idempotent upserts —
- * self-heals any writes dropped while offline). Preferences: remote-if-exists wins.
+ * Full two-way reconcile, triggered on sign-in and on app foreground. Pulls remote rows,
+ * union-merges with the local cache (nothing is lost), applies the merged set locally, then pushes
+ * the merged set back up (idempotent upserts — self-heals any writes dropped while offline).
+ * Preferences: remote-if-exists wins.
  */
-export async function reconcileOnSignIn(): Promise<void> {
+async function reconcileOnSignIn(): Promise<void> {
   const user_id = uid();
   if (!user_id) return;
   lastReconcile = Date.now();
@@ -262,18 +280,31 @@ export async function reconcileOnSignIn(): Promise<void> {
 }
 
 let appStateRegistered = false;
+let authSubRegistered = false;
 
 /**
- * Register a foreground reconcile (throttled to 30s) so other-device changes are
- * pulled in when the app comes back to the foreground while signed in. Idempotent.
+ * Start cloud sync: reconcile whenever auth transitions to signed-in, and again on app foreground
+ * (throttled to 30s) so other-device changes are pulled in. Idempotent — safe to call once at boot.
+ * Kept here (not in authStore) so the auth store has no dependency on the sync engine.
  */
-export function registerForegroundSync(): void {
-  if (appStateRegistered) return;
-  appStateRegistered = true;
-  AppState.addEventListener('change', (state) => {
-    if (state !== 'active') return;
-    if (useAuthStore.getState().status !== 'signedIn') return;
-    if (Date.now() - lastReconcile < 30_000) return;
-    void reconcileOnSignIn();
-  });
+export function initSync(): void {
+  if (!appStateRegistered) {
+    appStateRegistered = true;
+    AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      if (useAuthStore.getState().status !== 'signedIn') return;
+      if (Date.now() - lastReconcile < 30_000) return;
+      void reconcileOnSignIn();
+    });
+  }
+
+  // Catch a session that was already restored before this ran.
+  if (useAuthStore.getState().status === 'signedIn') void reconcileOnSignIn();
+
+  if (!authSubRegistered) {
+    authSubRegistered = true;
+    useAuthStore.subscribe((s, prev) => {
+      if (s.status === 'signedIn' && prev.status !== 'signedIn') void reconcileOnSignIn();
+    });
+  }
 }

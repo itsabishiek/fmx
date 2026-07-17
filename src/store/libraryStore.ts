@@ -1,17 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AppCard, AppSong, LocalPlaylist } from '@/api/types';
-import {
-  syncLikeAdded,
-  syncLikeRemoved,
-  syncPlaylistCreated,
-  syncPlaylistDeleted,
-  syncPlaylistRenamed,
-  syncPlaylistSongAdded,
-  syncPlaylistSongRemoved,
-  syncSavedAdded,
-  syncSavedRemoved,
-} from '@/lib/sync';
+import { sync } from '@/lib/syncBridge';
 import { storageKey, zustandStorage } from './storage';
 
 interface LibraryState {
@@ -56,8 +46,8 @@ export const useLibraryStore = create<LibraryState>()(
         set((s) => ({
           favorites: has ? s.favorites.filter((x) => x.id !== song.id) : [song, ...s.favorites],
         }));
-        if (has) syncLikeRemoved(song.id);
-        else syncLikeAdded(song);
+        if (has) sync.likeRemoved(song.id);
+        else sync.likeAdded(song);
       },
 
       isSaved: (id) => get().savedItems.some((i) => i.id === id),
@@ -66,8 +56,8 @@ export const useLibraryStore = create<LibraryState>()(
         set((s) => ({
           savedItems: has ? s.savedItems.filter((i) => i.id !== item.id) : [item, ...s.savedItems],
         }));
-        if (has) syncSavedRemoved(item.id);
-        else syncSavedAdded(item);
+        if (has) sync.savedRemoved(item.id);
+        else sync.savedAdded(item);
       },
 
       createPlaylist: (name, initialSongs = []) => {
@@ -79,7 +69,7 @@ export const useLibraryStore = create<LibraryState>()(
           songs: initialSongs,
         };
         set((s) => ({ playlists: [playlist, ...s.playlists] }));
-        syncPlaylistCreated(playlist);
+        sync.playlistCreated(playlist);
         return id;
       },
       renamePlaylist: (id, name) => {
@@ -87,11 +77,11 @@ export const useLibraryStore = create<LibraryState>()(
           playlists: s.playlists.map((p) => (p.id === id ? { ...p, name: name.trim() || p.name } : p)),
         }));
         const p = get().playlists.find((x) => x.id === id);
-        if (p) syncPlaylistRenamed(id, p.name);
+        if (p) sync.playlistRenamed(id, p.name);
       },
       deletePlaylist: (id) => {
         set((s) => ({ playlists: s.playlists.filter((p) => p.id !== id) }));
-        syncPlaylistDeleted(id);
+        sync.playlistDeleted(id);
       },
       addToPlaylist: (playlistId, song) => {
         const already = get().playlists.find((p) => p.id === playlistId)?.songs.some((x) => x.id === song.id) ?? false;
@@ -102,7 +92,7 @@ export const useLibraryStore = create<LibraryState>()(
               : p,
           ),
         }));
-        if (!already) syncPlaylistSongAdded(playlistId, song);
+        if (!already) sync.playlistSongAdded(playlistId, song);
       },
       removeFromPlaylist: (playlistId, songId) => {
         set((s) => ({
@@ -110,7 +100,7 @@ export const useLibraryStore = create<LibraryState>()(
             p.id === playlistId ? { ...p, songs: p.songs.filter((x) => x.id !== songId) } : p,
           ),
         }));
-        syncPlaylistSongRemoved(playlistId, songId);
+        sync.playlistSongRemoved(playlistId, songId);
       },
 
       replaceFromRemote: (data) => set(data),

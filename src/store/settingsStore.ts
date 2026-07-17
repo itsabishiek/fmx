@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { syncPreferences } from '@/lib/sync';
+import { sync } from '@/lib/syncBridge';
 import { storageKey, zustandStorage } from './storage';
 
 export type AudioQuality = '96kbps' | '160kbps' | '320kbps';
@@ -23,11 +23,11 @@ export const useSettingsStore = create<SettingsState>()(
       autoplay: true,
       setAudioQuality: (audioQuality) => {
         set({ audioQuality });
-        syncPreferences();
+        sync.preferences();
       },
       toggleAutoplay: () => {
         set((s) => ({ autoplay: !s.autoplay }));
-        syncPreferences();
+        sync.preferences();
       },
       replaceFromRemote: (data) => set(data),
     }),
