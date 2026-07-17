@@ -2,6 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import {
   getAlbum,
   getArtist,
+  getHome,
   getLyrics,
   getPlaylist,
   getSong,
@@ -12,8 +13,7 @@ import {
   searchPlaylists,
   searchSongs,
 } from '@/api/endpoints';
-import type { AppCard } from '@/api/types';
-import { FEED_SECTIONS, HERO_PLAYLIST_IDS } from '@/constants/homeFeed';
+import type { AppCard, AppSong } from '@/api/types';
 
 const STALE = 1000 * 60 * 10; // 10 min
 
@@ -24,45 +24,16 @@ export interface HomeFeed {
   sections: { key: string; title: string; items: AppCard[] }[];
 }
 
-async function fetchPlaylistCard(id: string): Promise<AppCard | null> {
-  try {
-    const p = await getPlaylist(id, 0, 1);
-    return {
-      id: p.id,
-      type: 'playlist',
-      title: p.title,
-      // Note: fetched with limit=1 (just for title/artwork), so songCount isn't the true
-      // total — omit it on home cards rather than show a misleading "1 songs".
-      subtitle: undefined,
-      image: p.image,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function useHomeFeed() {
   return useQuery<HomeFeed>({
     queryKey: ['home-feed'],
     staleTime: STALE,
-    queryFn: async () => {
-      const ids = Array.from(
-        new Set([...HERO_PLAYLIST_IDS, ...FEED_SECTIONS.flatMap((s) => s.playlistIds)]),
-      );
-      const cards = await Promise.all(ids.map(fetchPlaylistCard));
-      const byId = new Map<string, AppCard>();
-      ids.forEach((id, i) => {
-        const c = cards[i];
-        if (c) byId.set(id, c);
-      });
-      const pick = (list: string[]) => list.map((id) => byId.get(id)).filter(Boolean) as AppCard[];
+    queryFn: async ({ signal }) => {
+      const carousels = await getHome(signal);
+      const [first, ...rest] = carousels;
       return {
-        hero: pick(HERO_PLAYLIST_IDS),
-        sections: FEED_SECTIONS.map((s) => ({
-          key: s.key,
-          title: s.title,
-          items: pick(s.playlistIds),
-        })).filter((s) => s.items.length > 0),
+        hero: first?.items ?? [],
+        sections: rest.map((c, i) => ({ key: `${i}-${c.title}`, title: c.title, items: c.items })),
       };
     },
   });
@@ -151,11 +122,12 @@ export function useSuggestions(id?: string) {
   });
 }
 
-export function useLyrics(id?: string, enabled = true) {
+export function useLyrics(song?: AppSong | null, enabled = true) {
   return useQuery({
-    queryKey: ['lyrics', id],
-    enabled: !!id && enabled,
+    queryKey: ['lyrics', song?.id],
+    enabled: !!song && enabled,
     staleTime: STALE,
-    queryFn: ({ signal }) => getLyrics(id!, signal),
+    queryFn: ({ signal }) =>
+      getLyrics({ title: song!.title, artist: song!.artistName, duration: song!.duration }, signal),
   });
 }

@@ -46,7 +46,7 @@ export default function PlayerScreen() {
   const [showLyrics, setShowLyrics] = useState(false);
   // hasLyrics from the API is unreliable, so fetch whenever the lyrics tab is open and let the
   // result decide what to show (lyrics vs. a graceful "not available" message).
-  const lyrics = useLyrics(song?.id, showLyrics);
+  const lyrics = useLyrics(song, showLyrics);
 
   // Swipe-down-to-dismiss (Android has no native modal swipe). Declared before the early return
   // so hook order stays stable.

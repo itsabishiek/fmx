@@ -1,30 +1,14 @@
-import { apiGet, apiGetFrom, API_BASE, FALLBACK_API_BASE } from './client';
-import { CTX, SEARCH_FILTER, ytPost } from './innertube/client';
-import { parseSongSearch } from './innertube/parsers';
+import { bumpThumb, collect, CTX, SEARCH_FILTER, ytPost } from './innertube/client';
 import {
-  decodeEntities,
-  normalizeAlbum,
-  normalizeAlbumCard,
-  normalizeArtist,
-  normalizeArtistCard,
-  normalizePlaylist,
-  normalizePlaylistCard,
-  normalizeSong,
-  normalizeSongs,
-} from './normalize';
-import type {
-  AppAlbum,
-  AppArtist,
-  AppCard,
-  AppPlaylist,
-  AppSong,
-  GlobalSearchResponse,
-  RawAlbum,
-  RawArtist,
-  RawPlaylist,
-  RawSong,
-  SearchListResponse,
-} from './types';
+  parseAlbum,
+  parseArtist,
+  parseCardSearch,
+  parseHome,
+  parsePlaylist,
+  parseRadio,
+  parseSongSearch,
+} from './innertube/parsers';
+import type { AppAlbum, AppArtist, AppCard, AppPlaylist, AppSong } from './types';
 
 // ---- Search --------------------------------------------------------------
 
@@ -36,32 +20,31 @@ export interface GlobalSearch {
   playlists: AppCard[];
 }
 
-function globalItemToCard(item: GlobalSearchResponse['songs']['results'][number]): AppCard {
-  const type = (item.type as AppCard['type']) ?? 'song';
-  return {
-    id: item.id,
-    type,
-    title: decodeEntities(item.title),
-    subtitle: decodeEntities(item.description) || undefined,
-    image: item.image?.[item.image.length - 1]?.url?.replace(/^http:/, 'https:') ?? '',
-    round: type === 'artist',
-  };
+async function searchCards(query: string, filter: string, signal?: AbortSignal) {
+  const json = await ytPost<any>('search', { query, params: filter }, CTX.webRemix, { signal });
+  return parseCardSearch(json);
 }
 
+/** Top tab: albums/artists/playlists (songs come from the paginated `searchSongs`). */
 export async function searchAll(query: string, signal?: AbortSignal): Promise<GlobalSearch> {
-  const data = await apiGet<GlobalSearchResponse>('/search', { query }, signal);
+  const safe = (f: string) => searchCards(query, f, signal).then((r) => r.items).catch(() => [] as AppCard[]);
+  const [albums, artists, playlists] = await Promise.all([
+    safe(SEARCH_FILTER.albums),
+    safe(SEARCH_FILTER.artists),
+    safe(SEARCH_FILTER.playlists),
+  ]);
   return {
-    topQuery: (data.topQuery?.results ?? []).map(globalItemToCard),
-    songs: (data.songs?.results ?? []).map(globalItemToCard),
-    albums: (data.albums?.results ?? []).map(globalItemToCard),
-    artists: (data.artists?.results ?? []).map(globalItemToCard),
-    playlists: (data.playlists?.results ?? []).map(globalItemToCard),
+    topQuery: [],
+    songs: [],
+    albums: albums.slice(0, 10),
+    artists: artists.slice(0, 10),
+    playlists: playlists.slice(0, 10),
   };
 }
 
 export async function searchSongs(query: string, page = 0, limit = 20, signal?: AbortSignal) {
-  // YouTube Music song search (one "Songs" shelf, ~20 results). Pagination via continuations is a
-  // Phase-2 follow-up, so pages beyond the first return empty (the infinite query then stops).
+  // YouTube Music returns one "Songs" shelf (~20). Pagination via continuations is a follow-up;
+  // pages beyond the first return empty so the infinite query stops.
   if (page > 0) return { total: 0, items: [] as AppSong[] };
   const json = await ytPost<any>('search', { query, params: SEARCH_FILTER.songs }, CTX.webRemix, { signal });
   const { items } = parseSongSearch(json);
@@ -69,85 +52,94 @@ export async function searchSongs(query: string, page = 0, limit = 20, signal?: 
 }
 
 export async function searchAlbums(query: string, page = 0, limit = 20, signal?: AbortSignal) {
-  const data = await apiGet<SearchListResponse<RawAlbum>>(
-    '/search/albums',
-    { query, page, limit },
-    signal,
-  );
-  return { total: data.total, items: data.results.map(normalizeAlbumCard) };
+  if (page > 0) return { total: 0, items: [] as AppCard[] };
+  const { items } = await searchCards(query, SEARCH_FILTER.albums, signal);
+  return { total: items.length, items };
 }
 
 export async function searchArtists(query: string, page = 0, limit = 20, signal?: AbortSignal) {
-  const data = await apiGet<SearchListResponse<{ id: string; name: string; image: RawArtist['image'] }>>(
-    '/search/artists',
-    { query, page, limit },
-    signal,
-  );
-  return { total: data.total, items: data.results.map(normalizeArtistCard) };
+  if (page > 0) return { total: 0, items: [] as AppCard[] };
+  const { items } = await searchCards(query, SEARCH_FILTER.artists, signal);
+  return { total: items.length, items };
 }
 
 export async function searchPlaylists(query: string, page = 0, limit = 20, signal?: AbortSignal) {
-  const data = await apiGet<SearchListResponse<RawPlaylist>>(
-    '/search/playlists',
-    { query, page, limit },
-    signal,
-  );
-  return { total: data.total, items: data.results.map(normalizePlaylistCard) };
+  if (page > 0) return { total: 0, items: [] as AppCard[] };
+  const { items } = await searchCards(query, SEARCH_FILTER.playlists, signal);
+  return { total: items.length, items };
 }
 
 // ---- Songs ---------------------------------------------------------------
 
 export async function getSong(id: string, signal?: AbortSignal): Promise<AppSong | null> {
-  const data = await apiGet<RawSong[]>(`/songs/${id}`, undefined, signal);
-  // Return null (not undefined) so React Query accepts the result.
-  return data?.[0] ? normalizeSong(data[0]) : null;
+  try {
+    const j = await ytPost<any>('player', { videoId: id, contentCheckOk: true, racyCheckOk: true }, CTX.ios, {
+      signal,
+    });
+    const d = j?.videoDetails;
+    if (!d) return null;
+    const thumbs = collect<any[]>(d, 'thumbnails')[0] ?? [];
+    const raw = thumbs[thumbs.length - 1]?.url;
+    return {
+      id,
+      title: d.title ?? '',
+      artistName: d.author ?? '',
+      artwork: bumpThumb(raw, 544),
+      artworkSmall: bumpThumb(raw, 120),
+      duration: parseInt(d.lengthSeconds, 10) || 0,
+      hasLyrics: false,
+      downloadUrls: [],
+    };
+  } catch {
+    return null;
+  }
 }
 
-export async function getSongSuggestions(
-  id: string,
-  limit = 20,
-  signal?: AbortSignal,
-): Promise<AppSong[]> {
+/** Autoplay/radio seeded from a track (YouTube Music `next`), excluding the seed itself. */
+export async function getSongSuggestions(id: string, limit = 20, signal?: AbortSignal): Promise<AppSong[]> {
   try {
-    const data = await apiGet<RawSong[]>(`/songs/${id}/suggestions`, { limit }, signal);
-    return normalizeSongs(data);
+    const json = await ytPost<any>('next', { videoId: id, playlistId: `RDAMVM${id}` }, CTX.webRemix, { signal });
+    return parseRadio(json, id).slice(0, limit);
   } catch {
-    // Suggestions are best-effort (some tracks have none) — never fail playback over it.
     return [];
   }
 }
 
+// ---- Lyrics (LRCLIB — reliable, no key) ----------------------------------
+
 export interface Lyrics {
   lyrics: string;
-  snippet?: string;
-  copyright?: string;
 }
 
-export async function getLyrics(id: string, signal?: AbortSignal): Promise<Lyrics | null> {
-  // The primary host (saavn.sumit.co) doesn't implement lyrics (404), so try it then the
-  // fallback host. Either may be unavailable — always resolve to `null` (never `undefined`,
-  // which React Query rejects, and never throw, which would surface a console error).
-  for (const base of [API_BASE, FALLBACK_API_BASE]) {
-    try {
-      const data = await apiGetFrom<Lyrics>(base, `/songs/${id}/lyrics`, undefined, signal);
-      if (data?.lyrics) return data;
-    } catch {
-      // host unavailable or no lyrics here — try the next one
-    }
+export async function getLyrics(
+  opts: { title: string; artist: string; duration?: number },
+  signal?: AbortSignal,
+): Promise<Lyrics | null> {
+  try {
+    const params = new URLSearchParams({ track_name: opts.title, artist_name: opts.artist });
+    const res = await fetch(`https://lrclib.net/api/search?${params.toString()}`, { signal });
+    if (!res.ok) return null;
+    const arr = (await res.json()) as { plainLyrics?: string; syncedLyrics?: string }[];
+    if (!Array.isArray(arr)) return null;
+    const best = arr.find((x) => x.plainLyrics) ?? arr.find((x) => x.syncedLyrics);
+    if (!best) return null;
+    const raw = best.plainLyrics ?? (best.syncedLyrics ?? '').replace(/\[\d+:\d+(\.\d+)?\]\s?/g, '');
+    return raw.trim() ? { lyrics: raw } : null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
-// ---- Albums / Artists / Playlists ---------------------------------------
+// ---- Albums / Artists / Playlists / Home (InnerTube browse) --------------
 
 export async function getAlbum(id: string, signal?: AbortSignal): Promise<AppAlbum> {
-  const data = await apiGet<RawAlbum>('/albums', { id }, signal);
-  return normalizeAlbum(data);
+  const json = await ytPost<any>('browse', { browseId: id }, CTX.webRemix, { signal });
+  return parseAlbum(json, id);
 }
 
 export async function getArtist(id: string, signal?: AbortSignal): Promise<AppArtist> {
-  const data = await apiGet<RawArtist>(`/artists/${id}`, { songCount: 20, albumCount: 20 }, signal);
-  return normalizeArtist(data);
+  const json = await ytPost<any>('browse', { browseId: id }, CTX.webRemix, { signal });
+  return parseArtist(json, id);
 }
 
 export async function getPlaylist(
@@ -156,6 +148,13 @@ export async function getPlaylist(
   limit = 50,
   signal?: AbortSignal,
 ): Promise<AppPlaylist> {
-  const data = await apiGet<RawPlaylist>('/playlists', { id, page, limit }, signal);
-  return normalizePlaylist(data);
+  const browseId = id.startsWith('VL') ? id : `VL${id}`;
+  const json = await ytPost<any>('browse', { browseId }, CTX.webRemix, { signal });
+  return parsePlaylist(json, id);
+}
+
+/** Home feed carousels from YouTube Music (`FEmusic_home`). */
+export async function getHome(signal?: AbortSignal): Promise<{ title: string; items: AppCard[] }[]> {
+  const json = await ytPost<any>('browse', { browseId: 'FEmusic_home' }, CTX.webRemix, { signal });
+  return parseHome(json);
 }
