@@ -1,4 +1,6 @@
 import { apiGet, apiGetFrom, API_BASE, FALLBACK_API_BASE } from './client';
+import { CTX, SEARCH_FILTER, ytPost } from './innertube/client';
+import { parseSongSearch } from './innertube/parsers';
 import {
   decodeEntities,
   normalizeAlbum,
@@ -58,12 +60,12 @@ export async function searchAll(query: string, signal?: AbortSignal): Promise<Gl
 }
 
 export async function searchSongs(query: string, page = 0, limit = 20, signal?: AbortSignal) {
-  const data = await apiGet<SearchListResponse<RawSong>>(
-    '/search/songs',
-    { query, page, limit },
-    signal,
-  );
-  return { total: data.total, items: normalizeSongs(data.results) };
+  // YouTube Music song search (one "Songs" shelf, ~20 results). Pagination via continuations is a
+  // Phase-2 follow-up, so pages beyond the first return empty (the infinite query then stops).
+  if (page > 0) return { total: 0, items: [] as AppSong[] };
+  const json = await ytPost<any>('search', { query, params: SEARCH_FILTER.songs }, CTX.webRemix, { signal });
+  const { items } = parseSongSearch(json);
+  return { total: items.length, items };
 }
 
 export async function searchAlbums(query: string, page = 0, limit = 20, signal?: AbortSignal) {

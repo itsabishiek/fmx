@@ -5,7 +5,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useUIStore } from '@/store/uiStore';
 import { usePlaybackStore } from './playbackStore';
 import { setupPlayer } from './setup';
-import { playableSongs, songToTrack } from './track';
+import { playableSongs, resolvePlayUrl, songToTrack } from './track';
 
 function shuffleInPlace<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -15,9 +15,14 @@ function shuffleInPlace<T>(arr: T[]): T[] {
   return arr;
 }
 
+// Bumped on every playSongList so a stale background queue-fill can detect it was superseded.
+let playGeneration = 0;
+
 /**
- * Replace the queue with `songs` and start playing at `startIndex`.
- * Filters out songs with no stream URL at the current quality.
+ * Replace the queue with `songs` and start playing from `startIndex` (forward). Stream URLs are
+ * resolved at play time (YouTube) or from downloadUrls (JioSaavn): the start track is resolved
+ * first for instant playback, then the rest are resolved + appended in the background so RNTP and
+ * the mirror stay aligned.
  */
 export async function playSongList(
   songs: AppSong[],
@@ -39,12 +44,35 @@ export async function playSongList(
     usePlaybackStore.getState().setShuffle(true);
   }
 
+  const gen = ++playGeneration;
+  const tail = list.slice(start); // play from the chosen track forward
+  const startSong = await resolvePlayUrl(tail[0]);
+  if (gen !== playGeneration) return; // a newer playSongList superseded us
+  if (!startSong) {
+    useUIStore.getState().showToast('Song unavailable');
+    return;
+  }
+
   await TrackPlayer.reset();
-  await TrackPlayer.add(list.map(songToTrack));
-  if (start > 0) await TrackPlayer.skip(start);
-  usePlaybackStore.getState().setQueueSongs(list);
-  usePlaybackStore.getState().setCurrentSong(list[start]);
+  await TrackPlayer.add(songToTrack(startSong));
+  usePlaybackStore.getState().setQueueSongs([startSong]);
+  usePlaybackStore.getState().setCurrentSong(startSong);
   await TrackPlayer.play();
+
+  void fillQueue(tail.slice(1), gen);
+}
+
+/** Resolve + append the remaining tracks in order, keeping RNTP and the mirror in lockstep. */
+async function fillQueue(songs: AppSong[], gen: number): Promise<void> {
+  for (const song of songs) {
+    if (gen !== playGeneration) return;
+    const resolved = await resolvePlayUrl(song);
+    if (gen !== playGeneration) return;
+    if (!resolved) continue;
+    await TrackPlayer.add(songToTrack(resolved));
+    const queue = usePlaybackStore.getState().queueSongs;
+    usePlaybackStore.getState().setQueueSongs([...queue, resolved]);
+  }
 }
 
 /** Play a single song now (clears the queue). */
@@ -55,20 +83,21 @@ export async function playSong(song: AppSong): Promise<void> {
 /** Insert a song right after the currently playing track (or play now if nothing is playing). */
 export async function playNext(song: AppSong): Promise<void> {
   await setupPlayer();
-  if (!playableSongs([song]).length) {
+  const resolved = await resolvePlayUrl(song);
+  if (!resolved) {
     useUIStore.getState().showToast('Song unavailable');
     return;
   }
   const idx = (await TrackPlayer.getActiveTrackIndex()) ?? -1;
   const wasIdle = idx < 0 || usePlaybackStore.getState().queueSongs.length === 0;
   const insertAt = idx >= 0 ? idx + 1 : undefined;
-  await TrackPlayer.add([songToTrack(song)], insertAt);
+  await TrackPlayer.add([songToTrack(resolved)], insertAt);
   const queue = usePlaybackStore.getState().queueSongs;
   const next = [...queue];
-  next.splice(insertAt ?? next.length, 0, song);
+  next.splice(insertAt ?? next.length, 0, resolved);
   usePlaybackStore.getState().setQueueSongs(next);
   if (wasIdle) {
-    usePlaybackStore.getState().setCurrentSong(song);
+    usePlaybackStore.getState().setCurrentSong(resolved);
     await TrackPlayer.play();
     useUIStore.getState().showToast('Playing now');
   } else {
@@ -79,17 +108,18 @@ export async function playNext(song: AppSong): Promise<void> {
 /** Append a song to the end of the queue (or start playing it if nothing is playing). */
 export async function addToQueue(song: AppSong): Promise<void> {
   await setupPlayer();
-  if (!playableSongs([song]).length) {
+  const resolved = await resolvePlayUrl(song);
+  if (!resolved) {
     useUIStore.getState().showToast('Song unavailable');
     return;
   }
   const activeIndex = await TrackPlayer.getActiveTrackIndex();
   const wasIdle = activeIndex == null || usePlaybackStore.getState().queueSongs.length === 0;
-  await TrackPlayer.add([songToTrack(song)]);
+  await TrackPlayer.add([songToTrack(resolved)]);
   const queue = usePlaybackStore.getState().queueSongs;
-  usePlaybackStore.getState().setQueueSongs([...queue, song]);
+  usePlaybackStore.getState().setQueueSongs([...queue, resolved]);
   if (wasIdle) {
-    usePlaybackStore.getState().setCurrentSong(song);
+    usePlaybackStore.getState().setCurrentSong(resolved);
     await TrackPlayer.play();
     useUIStore.getState().showToast('Playing now');
   } else {
