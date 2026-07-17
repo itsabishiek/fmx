@@ -48,18 +48,20 @@ const cache = new Map<string, { url: string; expireAt: number }>();
 
 /**
  * Resolve a directly-playable audio URL for a YouTube video id.
- * IOS client first (works for ATV tracks with no token), ANDROID_VR (+visitorData) as fallback.
+ *
+ * ANDROID_VR (1.43.32 + visitorData) is the PRIMARY client: its googlevideo URLs serve a plain GET
+ * and an open-ended `Range: bytes=0-` (HTTP 200/206) — exactly what ExoPlayer/AVPlayer request when
+ * opening a progressive stream. The IOS client's URLs, by contrast, only accept *closed* byte ranges
+ * (open-ended → 403), so ExoPlayer can't play them; IOS is kept only as a last-resort fallback.
  * Result is cached until shortly before its URL expires. Returns null if nothing is playable.
  */
 export async function resolveStreamUrl(videoId: string, signal?: AbortSignal): Promise<string | null> {
   const cached = cache.get(videoId);
   if (cached && cached.expireAt > Date.now() + 60_000) return cached.url;
 
-  let url = await tryPlayer(videoId, CTX.ios, undefined, signal);
-  if (!url) {
-    const vd = await getVisitorData();
-    url = await tryPlayer(videoId, CTX.androidVr, vd, signal);
-  }
+  const vd = await getVisitorData();
+  let url = await tryPlayer(videoId, CTX.androidVr, vd, signal);
+  if (!url) url = await tryPlayer(videoId, CTX.ios, undefined, signal);
   if (!url) return null;
 
   cache.set(videoId, { url, expireAt: expiryFromUrl(url) });

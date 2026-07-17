@@ -80,6 +80,9 @@ export async function ytPost<T = any>(
   try {
     res = await fetch(`${ctx.origin}/youtubei/v1/${path}?key=${KEY}&prettyPrint=false`, {
       method: 'POST',
+      // 'omit' prevents React Native's native cookie jar from attaching any ambient youtube.com
+      // cookies — those make the cookieless ANDROID_VR player client return LOGIN_REQUIRED.
+      credentials: 'omit',
       headers: {
         'Content-Type': 'application/json',
         'User-Agent': ctx.userAgent,
