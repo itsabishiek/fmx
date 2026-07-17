@@ -141,12 +141,15 @@ export async function toggleShuffle(): Promise<boolean> {
   const songs = store.queueSongs;
   if (songs.length <= 2) return on;
   const idx = (await TrackPlayer.getActiveTrackIndex()) ?? 0;
+  // Reshuffle only the UPCOMING tracks; keep already-played history and the current track at its
+  // real index so the JS mirror stays aligned with RNTP's queue (Now Playing derives by index).
+  const played = songs.slice(0, idx);
   const current = songs[idx];
-  const rest = songs.filter((_, i) => i !== idx);
-  shuffleInPlace(rest);
+  const upcoming = songs.slice(idx + 1);
+  shuffleInPlace(upcoming);
   await TrackPlayer.removeUpcomingTracks();
-  await TrackPlayer.add(rest.map(songToTrack));
-  store.setQueueSongs([current, ...rest]);
+  await TrackPlayer.add(upcoming.map(songToTrack));
+  store.setQueueSongs([...played, current, ...upcoming]);
   return on;
 }
 

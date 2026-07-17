@@ -27,47 +27,51 @@ export const PlaybackService = async () => {
     await TrackPlayer.seekTo(Math.max(0, position - (interval ?? 15)));
   });
 
-  // Keep the runtime "current song" in sync and record listening history. The displayed
-  // metadata must ALWAYS follow the actually-playing track — so prefer the full AppSong from
-  // the queue mirror, but if that lookup misses (e.g. after a reorder), reconstruct from the
-  // track's own fields rather than leaving stale artwork/title on screen.
-  TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async ({ track }) => {
-    const t = track as
-      | {
-          id?: string | number;
-          songId?: string;
-          title?: string;
-          artist?: string;
-          album?: string;
-          artwork?: string;
-          duration?: number;
-          albumId?: string;
-          artistId?: string;
-          language?: string;
-          hasLyrics?: boolean;
-          url?: string;
-        }
-      | undefined;
-    if (!t) return;
-    const id = t.songId ?? (t.id != null ? String(t.id) : undefined);
-    if (!id) return;
+  // Keep the runtime "current song" in sync and record listening history. The displayed metadata
+  // must ALWAYS follow the actually-playing track. Resolve by the event's `index` into the queue
+  // mirror first: after a reorder the event's `track` payload is stale (a KotlinAudio quirk) but
+  // its `index` is correct, and the mirror is kept aligned with RNTP's real order. Fall back to
+  // the id lookup / reconstruct-from-track only when the index is unusable.
+  TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async ({ index, track }) => {
+    const queue = usePlaybackStore.getState().queueSongs;
+    let song: AppSong | undefined =
+      typeof index === 'number' && index >= 0 && index < queue.length ? queue[index] : undefined;
 
-    const song: AppSong =
-      usePlaybackStore.getState().songById(id) ?? {
+    if (!song) {
+      const t = track as
+        | {
+            id?: string | number;
+            songId?: string;
+            title?: string;
+            artist?: string;
+            album?: string;
+            artwork?: string;
+            duration?: number;
+            albumId?: string;
+            artistId?: string;
+            language?: string;
+            hasLyrics?: boolean;
+            url?: string;
+          }
+        | undefined;
+      const id = t?.songId ?? (t?.id != null ? String(t.id) : undefined);
+      if (!id) return;
+      song = usePlaybackStore.getState().songById(id) ?? {
         id,
-        title: t.title ?? '',
-        artistName: t.artist ?? '',
-        artistId: t.artistId,
-        albumName: t.album,
-        albumId: t.albumId,
-        artwork: t.artwork ?? '',
-        artworkSmall: t.artwork ?? '',
-        duration: typeof t.duration === 'number' ? t.duration : 0,
-        language: t.language,
-        hasLyrics: !!t.hasLyrics,
+        title: t?.title ?? '',
+        artistName: t?.artist ?? '',
+        artistId: t?.artistId,
+        albumName: t?.album,
+        albumId: t?.albumId,
+        artwork: t?.artwork ?? '',
+        artworkSmall: t?.artwork ?? '',
+        duration: typeof t?.duration === 'number' ? t.duration : 0,
+        language: t?.language,
+        hasLyrics: !!t?.hasLyrics,
         downloadUrls: [],
-        url: t.url,
+        url: t?.url,
       };
+    }
 
     usePlaybackStore.getState().setCurrentSong(song);
     useHistoryStore.getState().addToHistory(song);

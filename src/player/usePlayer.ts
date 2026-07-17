@@ -13,54 +13,24 @@ import { usePlaybackStore } from './playbackStore';
 export { useActiveTrack, useIsPlaying, useProgress };
 
 /**
- * The song currently playing. Derived from RNTP's reactive `useActiveTrack()` (the source of
- * truth for what's audibly playing) so the UI can never go stale — resolves to the full AppSong
- * from the queue mirror when available (keeps stream URLs etc.), otherwise reconstructs display
- * fields from the track. Falls back to the store's `currentSong` before any track is active.
+ * The song currently playing. Derived from the active track's *position* (`useActiveIndex`) into
+ * the queue mirror — NOT from RNTP's `useActiveTrack()` object. After a queue reorder, RNTP's
+ * `PlaybackActiveTrackChanged` event carries the correct `index` (media3's real playing position,
+ * proven by the audio) but a **stale `track`** payload (resolved from KotlinAudio's item list),
+ * so keying off the track object leaves the UI stuck on the previous song. The index is
+ * trustworthy and the mirror is kept aligned with RNTP's real order, so `queueSongs[index]` is
+ * always the actually-playing song (and the full AppSong, with artwork / ids / stream URLs).
+ * Falls back to the store's `currentSong` before a track is active / while the index is seeding.
  */
 export function useCurrentSong(): AppSong | null {
-  const track = useActiveTrack();
-  const stored = usePlaybackStore((s) => s.currentSong);
+  const index = useActiveIndex();
   const queueSongs = usePlaybackStore((s) => s.queueSongs);
+  const stored = usePlaybackStore((s) => s.currentSong);
 
   return useMemo(() => {
-    if (!track) return stored;
-    const t = track as {
-      id?: string | number;
-      songId?: string;
-      title?: string;
-      artist?: string;
-      album?: string;
-      artwork?: string;
-      duration?: number;
-      albumId?: string;
-      artistId?: string;
-      language?: string;
-      hasLyrics?: boolean;
-      url?: string;
-    };
-    const id = t.songId ?? (t.id != null ? String(t.id) : undefined);
-    if (!id) return stored;
-
-    const known = queueSongs.find((s) => s.id === id);
-    if (known) return known;
-
-    return {
-      id,
-      title: t.title ?? '',
-      artistName: t.artist ?? '',
-      artistId: t.artistId,
-      albumName: typeof t.album === 'string' ? t.album : undefined,
-      albumId: t.albumId,
-      artwork: typeof t.artwork === 'string' ? t.artwork : '',
-      artworkSmall: typeof t.artwork === 'string' ? t.artwork : '',
-      duration: typeof t.duration === 'number' ? t.duration : 0,
-      language: t.language,
-      hasLyrics: !!t.hasLyrics,
-      downloadUrls: [],
-      url: typeof t.url === 'string' ? t.url : undefined,
-    };
-  }, [track, stored, queueSongs]);
+    if (index >= 0 && index < queueSongs.length) return queueSongs[index];
+    return stored;
+  }, [index, queueSongs, stored]);
 }
 
 export function useQueueSongs() {
