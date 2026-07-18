@@ -105,6 +105,13 @@ export const useLibraryStore = create<LibraryState>()(
 
       replaceFromRemote: (data) => set(data),
     }),
-    { name: storageKey('library'), storage: zustandStorage },
+    {
+      name: storageKey('library'),
+      storage: zustandStorage,
+      // One-time reset for the YouTube Music migration: JioSaavn-era ids/URLs are unplayable, so
+      // discard any library saved before v1. Everything saved from now on persists normally.
+      version: 1,
+      migrate: () => ({ favorites: [], playlists: [], savedItems: [] }) as unknown as LibraryState,
+    },
   ),
 );

@@ -112,6 +112,20 @@ export const useHistoryStore = create<HistoryState>()(
         return entries.sort((a, b) => b[1] - a[1])[0][0];
       },
     }),
-    { name: storageKey('history'), storage: zustandStorage },
+    {
+      name: storageKey('history'),
+      storage: zustandStorage,
+      // One-time reset alongside the YouTube Music migration (see libraryStore) — clear stale
+      // JioSaavn-era plays/searches so history/recommendations start clean on YouTube ids.
+      version: 1,
+      migrate: () =>
+        ({
+          recentlyPlayed: [],
+          recentSearches: [],
+          recentSearchItems: [],
+          artistPlays: {},
+          languagePlays: {},
+        }) as unknown as HistoryState,
+    },
   ),
 );
