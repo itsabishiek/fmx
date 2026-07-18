@@ -1,9 +1,12 @@
 import { bumpThumb, collect, CTX, SEARCH_FILTER, ytPost } from './innertube/client';
 import {
+  getCarousels,
+  getGridItems,
+  itemToCard,
+  itemToSong,
   parseAlbum,
   parseArtist,
   parseCardSearch,
-  parseHome,
   parsePlaylist,
   parseRadio,
   parseSongSearch,
@@ -20,9 +23,39 @@ export interface GlobalSearch {
   playlists: AppCard[];
 }
 
+// Relevance re-ranking: YouTube sometimes ranks a remix/cover above the canonical result, so gently
+// promote the closest title match while keeping YouTube's order for ties.
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[([].*?[)\]]/g, ' ') // drop "(From …)", "[…]" qualifiers
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function relevance(nq: string, title: string): number {
+  if (!nq) return 0;
+  const nt = normalize(title);
+  if (nt === nq) return 100;
+  if (nt.startsWith(nq)) return 80;
+  const qtok = nq.split(' ').filter(Boolean);
+  const ttok = new Set(nt.split(' ').filter(Boolean));
+  const present = qtok.filter((w) => ttok.has(w)).length;
+  if (qtok.length && present === qtok.length) return 60;
+  return qtok.length ? (present / qtok.length) * 40 : 0;
+}
+function rankByQuery<T extends { title: string }>(query: string, items: T[]): T[] {
+  const nq = normalize(query);
+  return items
+    .map((item, i) => ({ item, i, score: relevance(nq, item.title) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .map((x) => x.item);
+}
+
 async function searchCards(query: string, filter: string, signal?: AbortSignal) {
   const json = await ytPost<any>('search', { query, params: filter }, CTX.webRemix, { signal });
-  return parseCardSearch(json);
+  const { items, continuation } = parseCardSearch(json);
+  return { items: rankByQuery(query, items), continuation };
 }
 
 /** Top tab: albums/artists/playlists (songs come from the paginated `searchSongs`). */
@@ -48,7 +81,8 @@ export async function searchSongs(query: string, page = 0, limit = 20, signal?: 
   if (page > 0) return { total: 0, items: [] as AppSong[] };
   const json = await ytPost<any>('search', { query, params: SEARCH_FILTER.songs }, CTX.webRemix, { signal });
   const { items } = parseSongSearch(json);
-  return { total: items.length, items };
+  const ranked = rankByQuery(query, items);
+  return { total: ranked.length, items: ranked };
 }
 
 export async function searchAlbums(query: string, page = 0, limit = 20, signal?: AbortSignal) {
@@ -153,8 +187,50 @@ export async function getPlaylist(
   return parsePlaylist(json, id);
 }
 
-/** Home feed carousels from YouTube Music (`FEmusic_home`). */
-export async function getHome(signal?: AbortSignal): Promise<{ title: string; items: AppCard[] }[]> {
-  const json = await ytPost<any>('browse', { browseId: 'FEmusic_home' }, CTX.webRemix, { signal });
-  return parseHome(json);
+export interface HomeData {
+  hero: AppCard[];
+  trending: AppSong[];
+  sections: { key: string; title: string; items: AppCard[] }[];
+}
+
+/**
+ * Rich home feed aggregated from several YouTube Music browse surfaces (home is sparse on its own):
+ * FEmusic_home (Top Picks + popular), FEmusic_explore (trending songs + new albums),
+ * FEmusic_charts (top artists), FEmusic_new_releases_albums (new-release album grid). Each source
+ * fails soft so one outage never blanks the page.
+ */
+export async function getHome(signal?: AbortSignal): Promise<HomeData> {
+  const b = (browseId: string) =>
+    ytPost<any>('browse', { browseId }, CTX.webRemix, { signal }).catch(() => null);
+  const [home, explore, charts, releases] = await Promise.all([
+    b('FEmusic_home'),
+    b('FEmusic_explore'),
+    b('FEmusic_charts'),
+    b('FEmusic_new_releases_albums'),
+  ]);
+
+  type Car = { title: string; contents: any[] };
+  const homeCars: Car[] = home ? getCarousels(home) : [];
+  const exploreCars: Car[] = explore ? getCarousels(explore) : [];
+  const chartsCars: Car[] = charts ? getCarousels(charts) : [];
+  const find = (cars: Car[], kw: string) => cars.find((c) => c.title.toLowerCase().includes(kw));
+  const cardsOf = (c?: Car) => (c?.contents ?? []).map(itemToCard).filter((x): x is AppCard => !!x);
+  const songsOf = (c?: Car) => (c?.contents ?? []).map(itemToSong).filter((x): x is AppSong => !!x);
+
+  const hero = cardsOf(homeCars[0]).slice(0, 12);
+  const trending = songsOf(find(exploreCars, 'trending')).slice(0, 15);
+
+  const sections: HomeData['sections'] = [];
+  const push = (title: string, items: AppCard[]) => {
+    if (items.length) sections.push({ key: title, title, items: items.slice(0, 20) });
+  };
+  push('New Albums & Singles', cardsOf(find(exploreCars, 'new album')));
+  push(
+    'New Releases',
+    (releases ? getGridItems(releases) : []).map(itemToCard).filter((x): x is AppCard => !!x).slice(0, 18),
+  );
+  if (homeCars[1]) push(homeCars[1].title || 'Popular', cardsOf(homeCars[1]));
+  push('Top Artists', cardsOf(find(chartsCars, 'top artist')));
+
+  return { hero, trending, sections };
 }

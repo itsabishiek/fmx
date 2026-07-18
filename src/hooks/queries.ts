@@ -21,6 +21,7 @@ const STALE = 1000 * 60 * 10; // 10 min
 
 export interface HomeFeed {
   hero: AppCard[];
+  trending: AppSong[];
   sections: { key: string; title: string; items: AppCard[] }[];
 }
 
@@ -28,14 +29,7 @@ export function useHomeFeed() {
   return useQuery<HomeFeed>({
     queryKey: ['home-feed'],
     staleTime: STALE,
-    queryFn: async ({ signal }) => {
-      const carousels = await getHome(signal);
-      const [first, ...rest] = carousels;
-      return {
-        hero: first?.items ?? [],
-        sections: rest.map((c, i) => ({ key: `${i}-${c.title}`, title: c.title, items: c.items })),
-      };
-    },
+    queryFn: ({ signal }) => getHome(signal),
   });
 }
 

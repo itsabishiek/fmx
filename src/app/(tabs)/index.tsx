@@ -83,6 +83,9 @@ export default function HomeScreen() {
       {feed.data ? (
         <>
           <HorizontalShelf title="Top Picks" items={feed.data.hero} cardSize={220} />
+          {feed.data.trending.length > 0 ? (
+            <SongShelf title="Trending" songs={feed.data.trending} />
+          ) : null}
           {feed.data.sections.map((section) => (
             <HorizontalShelf key={section.key} title={section.title} items={section.items} />
           ))}

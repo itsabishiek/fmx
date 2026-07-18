@@ -250,6 +250,16 @@ export function parseHome(json: any): { title: string; items: AppCard[] }[] {
     .filter((s) => s.items.length > 0);
 }
 
+/** Trim YouTube video-title noise ("… | channel | views", "(Official Video)", "- Video Song"). */
+function cleanTitle(t: string): string {
+  const cleaned = t
+    .replace(/\s*\|\s.*$/, '') // drop everything after the first " | "
+    .replace(/\s*[([][^)\]]*\b(official|lyrics?|music)\b[^)\]]*\b(video|audio|song)\b[^)\]]*[)\]]/gi, '')
+    .replace(/\s*[-–—]\s*(official\s*)?(lyrical|(lyrics?|music|video|full)\s*(video|song|audio)?)\s*$/gi, '')
+    .trim();
+  return cleaned || t.trim();
+}
+
 function parsePanelVideo(r: any): AppSong | null {
   if (!r) return null;
   const videoId = r.videoId ?? collect<any>(r, 'watchEndpoint')[0]?.videoId;
@@ -263,7 +273,7 @@ function parsePanelVideo(r: any): AppSong | null {
   const rawThumb = lastThumb(r.thumbnail);
   return {
     id: videoId,
-    title: runsText(r.title),
+    title: cleanTitle(runsText(r.title)),
     artistName,
     artistId: artistRuns[0]?.navigationEndpoint?.browseEndpoint?.browseId,
     artwork: bumpThumb(rawThumb, 544),
@@ -279,4 +289,31 @@ export function parseRadio(json: any, seedId: string): AppSong[] {
   return collect<any>(json, 'playlistPanelVideoRenderer')
     .map(parsePanelVideo)
     .filter((s): s is AppSong => !!s && s.id !== seedId);
+}
+
+// --- home / explore / charts aggregation ----------------------------------
+
+/** Every `musicCarouselShelfRenderer` as { title, raw contents }. */
+export function getCarousels(json: any): { title: string; contents: any[] }[] {
+  return collect<any>(json, 'musicCarouselShelfRenderer').map((c) => ({
+    title: runsText(c.header?.musicCarouselShelfBasicHeaderRenderer?.title),
+    contents: c.contents ?? [],
+  }));
+}
+
+/** Items of the first `gridRenderer` (e.g. the new-releases album grid). */
+export function getGridItems(json: any): any[] {
+  return collect<any>(json, 'gridRenderer')[0]?.items ?? [];
+}
+
+/** A carousel/grid entry → AppCard (two-row card, or a browse row). */
+export function itemToCard(node: any): AppCard | null {
+  if (node?.musicTwoRowItemRenderer) return parseTwoRow(node);
+  if (node?.musicResponsiveListItemRenderer) return parseCardRow(node.musicResponsiveListItemRenderer);
+  return null;
+}
+
+/** A carousel entry → AppSong (song rows only). */
+export function itemToSong(node: any): AppSong | null {
+  return node?.musicResponsiveListItemRenderer ? parseSongRow(node.musicResponsiveListItemRenderer) : null;
 }
